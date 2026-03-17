@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"money-tracker/internal/pkg/utils"
 	"money-tracker/internal/services"
 	"net/http"
@@ -58,10 +59,10 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	responseUser := struct {
-		ID        string `json:"id"`
-		Email     string `json:"email"`
-		Name      string `json:"name"`
-		AvatarURL string `json:"avatar_url"`
+		ID        string  `json:"id"`
+		Email     string  `json:"email"`
+		Name      string  `json:"name"`
+		AvatarURL *string `json:"avatar_url"`
 	}{
 		ID:        user.ID.String(),
 		Email:     user.Email,
@@ -74,22 +75,46 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 	var input struct {
-		Email    string `json:"email"`
-		Name     string `json:"name"`
-		Avatar   string `json:"avatar"`
-		GoogleID string `json:"google_id"`
+		Token string `json:"token" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid input"})
+		utils.Error(c, http.StatusBadRequest, "Token is required", nil)
 		return
 	}
 
-	user, err := h.service.HandleLoginGoogle(c.Request.Context(), input.Email, input.Name, input.Avatar, input.GoogleID)
+	googleUser, err := utils.VerifyGoogleToken(input.Token)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to process login"})
+		utils.Error(c, http.StatusUnauthorized, "Invalid Google token", nil)
 		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "success", "user": user})
+	accessToken, refreshToken, user, err := h.service.LoginWithGoogle(c.Request.Context(),
+		googleUser.Email,
+		googleUser.Name,
+		googleUser.Picture,
+		googleUser.Sub,
+	)
+
+	if err != nil {
+		utils.Error(c, http.StatusInternalServerError, utils.TranslateError(err), nil)
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, "Login successful", gin.H{"accessToken": accessToken, "refreshToken": refreshToken, "user": user})
+}
+
+func (h *AuthHandler) GetProfile(c *gin.Context) {
+	userID, exist := c.Get("user_id")
+	if !exist {
+		utils.Error(c, http.StatusUnauthorized, utils.TranslateError(errors.New("unauthorized")), nil)
+		return
+	}
+
+	user, err := h.service.GetUserProfile(c.Request.Context(), userID.(string))
+	if err != nil {
+		utils.Error(c, http.StatusInternalServerError, utils.TranslateError(err), nil)
+		return
+	}
+	utils.JSON(c, http.StatusOK, "User profile retrieved successfully", user)
 }

@@ -103,18 +103,18 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (string
 	if err != nil {
 		return "", "", nil, errors.New("internal_server_error")
 	}
-
+	err = s.repo.UpdateLastSign(context.Background(), user.ID)
 	return accessToken, refreshToken, user, nil
 }
 
-func (s *AuthService) HandleLoginGoogle(ctx context.Context, email, name, avatar, googleID string) (*models.User, error) {
+func (s *AuthService) LoginWithGoogle(ctx context.Context, email, name, avatar, googleID string) (string, string, *models.User, error) {
 	user, err := s.repo.GetUserByEmail(ctx, email)
 
 	if errors.Is(err, sql.ErrNoRows) {
 		newUser := &models.User{
 			Email:     email,
 			Name:      name,
-			AvatarURL: avatar,
+			AvatarURL: &avatar,
 		}
 
 		newProvider := &models.AuthProvider{
@@ -123,17 +123,48 @@ func (s *AuthService) HandleLoginGoogle(ctx context.Context, email, name, avatar
 		}
 
 		err := s.repo.CreateUserOAuth(ctx, newUser, newProvider)
-
 		if err != nil {
-			return nil, err
+			return "", "", nil, errors.New("failed_create_oauth_user")
 		}
 
-		return newUser, nil
+		return s.generateAuthTokens(newUser)
 	}
 
 	if err != nil {
-		return nil, err
+		return "", "", nil, err
 	}
 
+	exist, err := s.repo.CheckProviderExists(ctx, user.ID.String(), "google")
+	if err != nil {
+		return "", "", nil, err
+	}
+
+	if !exist {
+		err = s.repo.AddAuthProvider(ctx, user.ID.String(), "google", googleID)
+		if err != nil {
+			return "", "", nil, errors.New("failed_link_google_account")
+		}
+	}
+
+	return s.generateAuthTokens(user)
+}
+
+func (s *AuthService) generateAuthTokens(user *models.User) (string, string, *models.User, error) {
+	accessToken, refreshToken, err := utils.GenerateTokens(user.ID)
+	if err != nil {
+		return "", "", nil, errors.New("internal_server_error")
+	}
+	_ = s.repo.UpdateLastSign(context.Background(), user.ID)
+	return accessToken, refreshToken, user, nil
+}
+
+func (s *AuthService) GetUserProfile(ctx context.Context, userID string) (*models.User, error) {
+	user, err := s.repo.GetUserByID(ctx, userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errors.New("user_not_found")
+		}
+		return nil, err
+	}
 	return user, nil
 }
