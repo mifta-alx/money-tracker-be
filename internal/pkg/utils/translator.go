@@ -24,7 +24,13 @@ var errorMessages = map[string]string{
 	"google_auth_failed":         "Google authentication failed.",
 
 	// General Errors
-	"internal_server_error": "An unexpected error occurred on our server.",
+	"internal_server_error": "An unexpected error occurred on our server",
+	"validation_error":      "Validation failed",
+	"malformed_request":     "Malformed request",
+
+	// Accounts Errors
+	"account_limit_reached": "You have reached the maximum number of accounts (10)",
+	"account_not_found":     "Account not found",
 }
 
 func TranslateError(err error) string {

@@ -9,31 +9,26 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-type Response struct {
+type APIResponse struct {
 	Success bool        `json:"success"`
 	Message string      `json:"message"`
 	Data    interface{} `json:"data,omitempty"`
-}
-
-type ErrorResponse struct {
-	Success bool        `json:"success"`
-	Message string      `json:"message"`
 	Errors  interface{} `json:"errors,omitempty"`
 }
 
 func JSON(c *gin.Context, statusCode int, message string, data interface{}) {
-	c.JSON(statusCode, Response{
+	c.JSON(statusCode, APIResponse{
 		Success: statusCode >= 200 && statusCode < 300,
 		Message: message,
 		Data:    data,
 	})
 }
 
-func Error(c *gin.Context, statusCode int, message string, details interface{}) {
-	c.JSON(statusCode, ErrorResponse{
+func Error(c *gin.Context, statusCode int, message string, errs interface{}) {
+	c.JSON(statusCode, APIResponse{
 		Success: false,
 		Message: message,
-		Errors:  details,
+		Errors:  errs,
 	})
 }
 
@@ -42,21 +37,25 @@ func FormatValidationError(err error) map[string]string {
 	var ve validator.ValidationErrors
 	if errors.As(err, &ve) {
 		for _, fe := range ve {
+			fieldName := strings.ToLower(fe.Field())
 			var msg string
 			switch fe.Tag() {
 			case "required":
-				msg = fmt.Sprintf("Field %s is required", fe.Field())
+				msg = fmt.Sprintf("%s is required", fieldName)
 			case "email":
-				msg = fmt.Sprintf("Field %s must be a valid email", fe.Field())
+				msg = fmt.Sprintf("%s must be a valid email", fieldName)
+			case "oneof":
+				msg = fmt.Sprintf("%s must be one of: %s", fieldName, fe.Param())
 			case "max":
-				msg = fmt.Sprintf("Field %s must not exceed %s characters", fe.Field(), fe.Param())
+				msg = fmt.Sprintf("%s must not exceed %s characters", fieldName, fe.Param())
 			case "min":
-				msg = fmt.Sprintf("Field %s must be at least %s characters", fe.Field(), fe.Param())
+				msg = fmt.Sprintf("%s must be at least %s characters", fieldName, fe.Param())
 			default:
-				msg = fmt.Sprintf("Field %s is invalid", fe.Field())
+				msg = fmt.Sprintf("%s is invalid", fieldName)
 			}
-			errorsMap[strings.ToLower(fe.Field())] = msg
+			errorsMap[strings.ToLower(fieldName)] = msg
 		}
+		return errorsMap
 	}
-	return errorsMap
+	return nil
 }
