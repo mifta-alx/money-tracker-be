@@ -25,6 +25,9 @@ var errorMessages = map[string]string{
 
 	// General Errors
 	"internal_server_error": "An unexpected error occurred on our server.",
+
+	// Accounts Errors
+	"account_limit_reached": "You have reached the maximum number of accounts (10).",
 }
 
 func TranslateError(err error) string {

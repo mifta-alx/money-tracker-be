@@ -9,6 +9,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 func AuthMiddleware() gin.HandlerFunc {
@@ -42,7 +43,20 @@ func AuthMiddleware() gin.HandlerFunc {
 		}
 
 		if claims, ok := token.Claims.(jwt.MapClaims); ok {
-			c.Set("user_id", claims["user_id"])
+			userIDRaw, ok := claims["user_id"].(string)
+			if !ok {
+				utils.Error(c, http.StatusUnauthorized, "Invalid user ID in token", nil)
+				c.Abort()
+				return
+			}
+
+			userID, err := uuid.Parse(userIDRaw)
+			if err != nil {
+				utils.Error(c, http.StatusUnauthorized, "User ID format in token is not a valid UUID", nil)
+				c.Abort()
+				return
+			}
+			c.Set(utils.UserIDKey, userID)
 		}
 
 		c.Next()

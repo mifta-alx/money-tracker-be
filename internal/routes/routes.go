@@ -23,10 +23,15 @@ func SetupRouter() *gin.Engine {
 	v1.POST("/register", authHandler.Register)
 	v1.POST("/login", authHandler.Login)
 
+	accountRepo := repository.NewAccountRepository(db)
+	accountService := services.NewAccountService(accountRepo)
+	accountHandler := handlers.NewAccountHandler(accountService)
+
 	protected := v1.Group("/")
 	protected.Use(middleware.AuthMiddleware())
 	{
-		protected.GET("/me", authHandler.GetProfile)
+		protected.GET("/account", accountHandler.GetAccounts)
+		protected.POST("/account", accountHandler.CreateAccount)
 	}
 	transactionHandler := handlers.NewTransactionHandler(db)
 
