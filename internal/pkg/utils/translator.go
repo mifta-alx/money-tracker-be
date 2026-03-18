@@ -12,16 +12,18 @@ var errorMessages = map[string]string{
 	"create_account_failed":   "Could not create account, please try again later.",
 
 	// Login & Auth Errors
-	"invalid_credentials":  "Invalid email or password.",
+	"invalid_credentials":  "Invalid email or password",
 	"user_not_found":       "User account not found.",
 	"unauthorized":         "You are not authorized to access this resource.",
 	"invalid_token":        "Invalid or expired token, please login again.",
 	"auth_header_required": "Authorization header is required.",
 
 	// OAuth / Google Login Errors
-	"failed_create_oauth_user":   "Failed to create account via Google.",
+	"failed_create_oauth":        "Failed to create account via Google.",
 	"failed_link_google_account": "Failed to link your Google account to the existing profile.",
 	"google_auth_failed":         "Google authentication failed.",
+	"token_required":             "Token is required",
+	"invalid_google_token":       "Invalid token, please try again later",
 
 	// General Errors
 	"internal_server_error": "An unexpected error occurred on our server",

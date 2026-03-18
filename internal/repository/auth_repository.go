@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"money-tracker/internal/models"
 	"time"
 
@@ -20,16 +19,13 @@ func NewAuthRepository(db *sql.DB) *AuthRepository {
 
 func (r *AuthRepository) GetUserWithPassword(ctx context.Context, email string) (*models.User, string, error) {
 	query := `SELECT u.id, u.email, u.name, u.created_at, u.updated_at, ap.password_hash 
-		FROM users u JOIN auth_providers ap ON u.id = ap.user_id WHERE u.email = $1 AND ap.provider = 'local'`
+		FROM users u JOIN auth_providers ap ON u.id = ap.user_id WHERE u.email = $1 AND ap.provider = 'email'`
 
 	var u models.User
 	var passwordHash string
 	err := r.DB.QueryRowContext(ctx, query, email).Scan(&u.ID, &u.Email, &u.Name, &u.CreatedAt, &u.UpdatedAt, &passwordHash)
 
 	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, "", errors.New("invalid_credentials")
-		}
 		return nil, "", err
 	}
 
@@ -46,7 +42,7 @@ func (r *AuthRepository) GetUserByEmail(ctx context.Context, email string) (*mod
 	return &u, nil
 }
 
-func (r *AuthRepository) GetUserByID(ctx context.Context, id string) (*models.User, error) {
+func (r *AuthRepository) GetUserByID(ctx context.Context, id uuid.UUID) (*models.User, error) {
 	query := `SELECT id, email, name, avatar_url, created_at, updated_at FROM users WHERE id = $1`
 	var u models.User
 	err := r.DB.QueryRowContext(ctx, query, id).Scan(&u.ID, &u.Email, &u.Name, &u.AvatarURL, &u.CreatedAt, &u.UpdatedAt)
@@ -68,8 +64,9 @@ func (r *AuthRepository) CreateUser(ctx context.Context, u *models.User, passwor
 		}
 	}()
 
-	userQuery := `INSERT INTO users (email, name) VALUES ($1, $2) RETURNING id`
-	err = tx.QueryRowContext(ctx, userQuery, u.Email, u.Name).Scan(&u.ID)
+	userQuery := `INSERT INTO users (email, name) VALUES ($1, $2) RETURNING id, created_at, updated_at`
+	err = tx.QueryRowContext(ctx, userQuery, u.Email, u.Name).Scan(&u.ID, &u.CreatedAt,
+		&u.UpdatedAt)
 
 	if err != nil {
 		return err
@@ -84,7 +81,7 @@ func (r *AuthRepository) CreateUser(ctx context.Context, u *models.User, passwor
 	return tx.Commit()
 }
 
-func (r *AuthRepository) CheckProviderExists(ctx context.Context, userId, provider string) (bool, error) {
+func (r *AuthRepository) CheckProviderExists(ctx context.Context, userId uuid.UUID, provider string) (bool, error) {
 	query := `SELECT EXISTS(SELECT 1 FROM auth_providers WHERE user_id = $1 AND provider = $2);`
 	var exist bool
 	err := r.DB.QueryRowContext(ctx, query, userId, provider).Scan(&exist)
@@ -96,7 +93,7 @@ func (r *AuthRepository) CheckProviderExists(ctx context.Context, userId, provid
 	return exist, nil
 }
 
-func (r *AuthRepository) AddAuthProvider(ctx context.Context, userId, provider, providerUserId string) error {
+func (r *AuthRepository) AddAuthProvider(ctx context.Context, userId uuid.UUID, provider, providerUserId string) error {
 	query := `INSERT INTO auth_providers (user_id, provider, provider_user_id) VALUES ($1, $2, $3);`
 	_, err := r.DB.ExecContext(ctx, query, userId, provider, providerUserId)
 	return err
