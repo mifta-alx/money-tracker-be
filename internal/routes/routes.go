@@ -7,6 +7,7 @@ import (
 	"money-tracker/internal/repository"
 	"money-tracker/internal/services"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -14,36 +15,38 @@ func SetupRouter() *gin.Engine {
 	db := database.Connect()
 
 	r := gin.Default()
+	config := cors.DefaultConfig()
+	config.AllowOrigins = []string{"http://localhost:3000"}
+	config.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"}
+	config.AllowHeaders = []string{"Origin", "Content-Type", "Accept", "Authorization"}
+	config.AllowCredentials = true
+	r.Use(cors.New(config))
+
 	v1 := r.Group("/api/v1")
 
 	authRepo := repository.NewAuthRepository(db)
 	authService := services.NewAuthService(authRepo)
 	authHandler := handlers.NewAuthHandler(authService)
 
-	v1.POST("/register", authHandler.Register)
-	v1.POST("/login", authHandler.Login)
-
 	accountRepo := repository.NewAccountRepository(db)
 	accountService := services.NewAccountService(accountRepo)
 	accountHandler := handlers.NewAccountHandler(accountService)
 
-	protected := v1.Group("/")
-	protected.Use(middleware.AuthMiddleware())
+	auth := v1.Group("/auth")
 	{
-		protected.GET("/account", accountHandler.GetAccounts)
-		protected.GET("/account/:id", accountHandler.GetAccount)
-		protected.POST("/account", accountHandler.CreateAccount)
-	}
-	transactionHandler := handlers.NewTransactionHandler(db)
-
-	transactions := r.Group("/transactions")
-	{
-		transactions.GET("", transactionHandler.GetAllTransactions)
-		transactions.POST("", transactionHandler.CreateTransaction)
-		transactions.GET("/:id", transactionHandler.GetTransactionById)
-		transactions.PUT("/:id", transactionHandler.UpdateTransaction)
-		transactions.DELETE("/:id", transactionHandler.DeleteTransaction)
+		auth.POST("/register", authHandler.Register)
+		auth.POST("/login", authHandler.Login)
+		auth.POST("/google", authHandler.GoogleCallback)
 	}
 
+	v1.Use(middleware.AuthMiddleware())
+	{
+		accounts := v1.Group("/accounts")
+		{
+			accounts.GET("", accountHandler.GetAccounts)
+			accounts.POST("", accountHandler.CreateAccount)
+			accounts.GET("/:id", accountHandler.GetAccount)
+		}
+	}
 	return r
 }

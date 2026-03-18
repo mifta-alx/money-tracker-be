@@ -7,6 +7,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 )
 
 type AuthHandler struct {
@@ -25,8 +27,12 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		prettyError := utils.FormatValidationError(err)
-		utils.Error(c, http.StatusBadRequest, "Validation failed", prettyError)
+		var ve validator.ValidationErrors
+		if errors.As(err, &ve) {
+			utils.Error(c, http.StatusUnprocessableEntity, utils.TranslateError(services.ErrValidation), utils.FormatValidationError(err))
+			return
+		}
+		utils.Error(c, http.StatusBadRequest, utils.TranslateError(services.ErrMalformedRequest), nil)
 		return
 	}
 
@@ -37,7 +43,12 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
-	utils.JSON(c, http.StatusCreated, "User created successfully", user)
+	utils.JSON(c, http.StatusCreated, "User created successfully", gin.H{
+		"id":         user.ID,
+		"email":      user.Email,
+		"name":       user.Name,
+		"created_at": user.CreatedAt,
+	})
 }
 
 func (h *AuthHandler) Login(c *gin.Context) {
@@ -47,30 +58,33 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		prettyError := utils.FormatValidationError(err)
-		utils.Error(c, http.StatusBadRequest, "Validation failed", prettyError)
+		var ve validator.ValidationErrors
+		if errors.As(err, &ve) {
+			utils.Error(c, http.StatusUnprocessableEntity, utils.TranslateError(services.ErrValidation), utils.FormatValidationError(ve))
+			return
+		}
+		utils.Error(c, http.StatusBadRequest, utils.TranslateError(services.ErrMalformedRequest), nil)
 		return
 	}
 
 	accessToken, refreshToken, user, err := h.service.Login(c.Request.Context(), input.Email, input.Password)
 
 	if err != nil {
-		utils.Error(c, http.StatusUnauthorized, utils.TranslateError(err), nil)
+		status := http.StatusUnauthorized
+		if errors.Is(err, services.ErrInternal) {
+			status = http.StatusInternalServerError
+		}
+		utils.Error(c, status, utils.TranslateError(err), nil)
+		return
 	}
 
-	responseUser := struct {
-		ID        string  `json:"id"`
-		Email     string  `json:"email"`
-		Name      string  `json:"name"`
-		AvatarURL *string `json:"avatar_url"`
-	}{
-		ID:        user.ID.String(),
-		Email:     user.Email,
-		Name:      user.Name,
-		AvatarURL: user.AvatarURL,
-	}
-
-	utils.JSON(c, http.StatusOK, "Login successful", gin.H{"accessToken": accessToken, "refreshToken": refreshToken, "user": responseUser})
+	utils.JSON(c, http.StatusOK, "Login successful", gin.H{"accessToken": accessToken, "refreshToken": refreshToken, "user": gin.H{
+		"id":           user.ID,
+		"email":        user.Email,
+		"name":         user.Name,
+		"avatar_url":   user.AvatarURL,
+		"last_sign_in": user.LastSignInAt,
+	}})
 }
 
 func (h *AuthHandler) GoogleCallback(c *gin.Context) {
@@ -79,13 +93,13 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
-		utils.Error(c, http.StatusBadRequest, "Token is required", nil)
+		utils.Error(c, http.StatusBadRequest, utils.TranslateError(services.ErrTokenRequired), nil)
 		return
 	}
 
 	googleUser, err := utils.VerifyGoogleToken(input.Token)
 	if err != nil {
-		utils.Error(c, http.StatusUnauthorized, "Invalid Google token", nil)
+		utils.Error(c, http.StatusUnauthorized, utils.TranslateError(services.ErrInvalidGoogleToken), nil)
 		return
 	}
 
@@ -105,15 +119,19 @@ func (h *AuthHandler) GoogleCallback(c *gin.Context) {
 }
 
 func (h *AuthHandler) GetProfile(c *gin.Context) {
-	userID, exist := c.Get("user_id")
-	if !exist {
-		utils.Error(c, http.StatusUnauthorized, utils.TranslateError(errors.New("unauthorized")), nil)
+	val, exists := c.Get(utils.UserIDKey)
+	if !exists {
+		utils.Error(c, http.StatusUnauthorized, utils.TranslateError(services.ErrUnauthorized), nil)
 		return
 	}
-
-	user, err := h.service.GetUserProfile(c.Request.Context(), userID.(string))
+	userID := val.(uuid.UUID)
+	user, err := h.service.GetUserProfile(c.Request.Context(), userID)
 	if err != nil {
-		utils.Error(c, http.StatusInternalServerError, utils.TranslateError(err), nil)
+		status := http.StatusInternalServerError
+		if errors.Is(err, services.ErrUserNotFound) {
+			status = http.StatusNotFound
+		}
+		utils.Error(c, status, utils.TranslateError(err), nil)
 		return
 	}
 	utils.JSON(c, http.StatusOK, "User profile retrieved successfully", user)

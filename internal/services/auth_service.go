@@ -10,8 +10,8 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	"time"
 
+	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -24,10 +24,14 @@ func NewAuthService(r *repository.AuthRepository) *AuthService {
 }
 
 func (s *AuthService) Register(ctx context.Context, email, name, password string) (*models.User, error) {
-	existingUser, _ := s.repo.GetUserByEmail(ctx, email)
+	existingUser, err := s.repo.GetUserByEmail(ctx, email)
+
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrInternal
+	}
 
 	if existingUser != nil {
-		return nil, errors.New("email_exists")
+		return nil, ErrEmailExist
 	}
 
 	if err := validatePassword(password); err != nil {
@@ -39,20 +43,17 @@ func (s *AuthService) Register(ctx context.Context, email, name, password string
 	hashPassword, err := bcrypt.GenerateFromPassword([]byte(passwordWithPepper), bcrypt.DefaultCost)
 
 	if err != nil {
-		return nil, errors.New("process_password_failed")
+		return nil, ErrInternal
 	}
 
-	now := time.Now()
 	newUser := &models.User{
-		Name:      name,
-		Email:     email,
-		CreatedAt: now,
-		UpdatedAt: now,
+		Name:  name,
+		Email: email,
 	}
 
 	err = s.repo.CreateUser(ctx, newUser, string(hashPassword))
 	if err != nil {
-		return nil, errors.New("create_account_failed")
+		return nil, ErrInternal
 	}
 
 	return newUser, nil
@@ -60,26 +61,26 @@ func (s *AuthService) Register(ctx context.Context, email, name, password string
 
 func validatePassword(password string) error {
 	if len(password) < 8 {
-		return errors.New("password_too_short")
+		return ErrPasswordTooShort
 	}
 
 	if strings.Contains(password, " ") {
-		return errors.New("password_contains_space")
+		return ErrPasswordContainsSpace
 	}
 
 	hasNumber, _ := regexp.MatchString(`[0-9]`, password)
 	if !hasNumber {
-		return errors.New("password_no_number")
+		return ErrPasswordNoNumber
 	}
 
 	matchUpper, _ := regexp.MatchString(`[A-Z]`, password)
 	if !matchUpper {
-		return errors.New("password_no_upper")
+		return ErrPasswordNoUpper
 	}
 
 	matchLower, _ := regexp.MatchString(`[a-z]`, password)
 	if !matchLower {
-		return errors.New("password_no_lower")
+		return ErrPasswordNoLower
 	}
 
 	return nil
@@ -88,7 +89,7 @@ func validatePassword(password string) error {
 func (s *AuthService) Login(ctx context.Context, email, password string) (string, string, *models.User, error) {
 	user, hashPassword, err := s.repo.GetUserWithPassword(ctx, email)
 	if err != nil {
-		return "", "", nil, errors.New("invalid_credentials")
+		return "", "", nil, ErrInvalidCredentials
 	}
 
 	pepper := os.Getenv("AUTH_PEPPER")
@@ -96,13 +97,14 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (string
 
 	err = bcrypt.CompareHashAndPassword([]byte(hashPassword), []byte(passwordWithPepper))
 	if err != nil {
-		return "", "", nil, errors.New("invalid_credentials")
+		return "", "", nil, ErrInvalidCredentials
 	}
 
 	accessToken, refreshToken, err := utils.GenerateTokens(user.ID)
 	if err != nil {
-		return "", "", nil, errors.New("internal_server_error")
+		return "", "", nil, ErrInternal
 	}
+
 	err = s.repo.UpdateLastSign(context.Background(), user.ID)
 	return accessToken, refreshToken, user, nil
 }
@@ -124,45 +126,45 @@ func (s *AuthService) LoginWithGoogle(ctx context.Context, email, name, avatar, 
 
 		err := s.repo.CreateUserOAuth(ctx, newUser, newProvider)
 		if err != nil {
-			return "", "", nil, errors.New("failed_create_oauth_user")
+			return "", "", nil, ErrFailedCreateOAuth
 		}
 
-		return s.generateAuthTokens(newUser)
+		return s.generateAuthTokens(ctx, newUser)
 	}
 
 	if err != nil {
 		return "", "", nil, err
 	}
 
-	exist, err := s.repo.CheckProviderExists(ctx, user.ID.String(), "google")
+	exist, err := s.repo.CheckProviderExists(ctx, user.ID, "google")
 	if err != nil {
 		return "", "", nil, err
 	}
 
 	if !exist {
-		err = s.repo.AddAuthProvider(ctx, user.ID.String(), "google", googleID)
+		err = s.repo.AddAuthProvider(ctx, user.ID, "google", googleID)
 		if err != nil {
-			return "", "", nil, errors.New("failed_link_google_account")
+			return "", "", nil, ErrFailedLinkGoogle
 		}
 	}
 
-	return s.generateAuthTokens(user)
+	return s.generateAuthTokens(ctx, user)
 }
 
-func (s *AuthService) generateAuthTokens(user *models.User) (string, string, *models.User, error) {
+func (s *AuthService) generateAuthTokens(ctx context.Context, user *models.User) (string, string, *models.User, error) {
 	accessToken, refreshToken, err := utils.GenerateTokens(user.ID)
 	if err != nil {
-		return "", "", nil, errors.New("internal_server_error")
+		return "", "", nil, ErrInternal
 	}
-	_ = s.repo.UpdateLastSign(context.Background(), user.ID)
+	_ = s.repo.UpdateLastSign(ctx, user.ID)
 	return accessToken, refreshToken, user, nil
 }
 
-func (s *AuthService) GetUserProfile(ctx context.Context, userID string) (*models.User, error) {
+func (s *AuthService) GetUserProfile(ctx context.Context, userID uuid.UUID) (*models.User, error) {
 	user, err := s.repo.GetUserByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.New("user_not_found")
+			return nil, ErrUserNotFound
 		}
 		return nil, err
 	}

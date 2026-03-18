@@ -11,7 +11,7 @@ type User struct {
 	Email        string     `json:"email" db:"email"`
 	Name         string     `json:"name" db:"name"`
 	AvatarURL    *string    `json:"avatar_url" db:"avatar_url"`
-	CreatedAt    time.Time  `json:"created_at" db:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at" db:"updated_at"`
-	LastSignInAt *time.Time `json:"last_sign_in_at" db:"last_sign_in_at"`
+	CreatedAt    time.Time  `json:"-" db:"created_at"`
+	UpdatedAt    time.Time  `json:"-" db:"updated_at"`
+	LastSignInAt *time.Time `json:"-" db:"last_sign_in_at"`
 }
