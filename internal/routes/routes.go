@@ -31,6 +31,7 @@ func SetupRouter() *gin.Engine {
 	protected.Use(middleware.AuthMiddleware())
 	{
 		protected.GET("/account", accountHandler.GetAccounts)
+		protected.GET("/account/:id", accountHandler.GetAccount)
 		protected.POST("/account", accountHandler.CreateAccount)
 	}
 	transactionHandler := handlers.NewTransactionHandler(db)

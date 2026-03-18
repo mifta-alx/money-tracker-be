@@ -2,6 +2,8 @@ package services
 
 import (
 	"context"
+	"database/sql"
+	"errors"
 	"money-tracker/internal/models"
 	"money-tracker/internal/repository"
 
@@ -17,7 +19,7 @@ func NewAccountService(r *repository.AccountRepository) *AccountService {
 }
 
 func (s *AccountService) CreateAccount(ctx context.Context, req *models.Account) (*models.Account, error) {
-	if req.Name == "" || req.UserID == uuid.Nil {
+	if req.Name == "" || req.UserID == uuid.Nil || req.Icon == "" {
 		return nil, ErrMissingRequiredFields
 	}
 	if req.Balance < 0 {
@@ -38,4 +40,15 @@ func (s *AccountService) GetAccounts(ctx context.Context, userID uuid.UUID) ([]*
 		return nil, ErrInternal
 	}
 	return accounts, nil
+}
+
+func (s *AccountService) GetAccount(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*models.Account, error) {
+	acc, err := s.repo.GetAccount(ctx, id, userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrAccountNotFound
+		}
+		return nil, ErrInternal
+	}
+	return acc, nil
 }

@@ -14,10 +14,23 @@ type JWTClaims struct {
 }
 
 func GenerateTokens(userID uuid.UUID) (string, string, error) {
+	accessExpiryStr := os.Getenv("JWT_ACCESS_EXPIRY")
+	if accessExpiryStr == "" {
+		accessExpiryStr = "15m"
+	}
+
+	refreshExpiryStr := os.Getenv("JWT_REFRESH_EXPIRY")
+	if refreshExpiryStr == "" {
+		refreshExpiryStr = "168h"
+	}
+
+	accessDuration, _ := time.ParseDuration(accessExpiryStr)
+	refreshDuration, _ := time.ParseDuration(refreshExpiryStr)
+
 	accessTokenClaims := &JWTClaims{
 		UserID: userID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(15 * time.Minute)),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(accessDuration)),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 		},
 	}
@@ -30,7 +43,7 @@ func GenerateTokens(userID uuid.UUID) (string, string, error) {
 
 	refreshTokenClaims := &jwt.RegisteredClaims{
 		Subject:   userID.String(),
-		ExpiresAt: jwt.NewNumericDate(time.Now().Add(7 * 24 * time.Hour)),
+		ExpiresAt: jwt.NewNumericDate(time.Now().Add(refreshDuration)),
 		IssuedAt:  jwt.NewNumericDate(time.Now()),
 	}
 

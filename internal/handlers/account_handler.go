@@ -23,7 +23,7 @@ func NewAccountHandler(s *services.AccountService) *AccountHandler {
 func (h *AccountHandler) CreateAccount(c *gin.Context) {
 	val, exists := c.Get(utils.UserIDKey)
 	if !exists {
-		utils.Error(c, http.StatusUnauthorized, "Unauthorized", nil)
+		utils.Error(c, http.StatusUnauthorized, utils.TranslateError(services.ErrUnauthorized), nil)
 		return
 	}
 	userID := val.(uuid.UUID)
@@ -31,16 +31,17 @@ func (h *AccountHandler) CreateAccount(c *gin.Context) {
 		Name    string `json:"name" binding:"required"`
 		Type    string `json:"type" binding:"required,oneof=Bank E-Wallet Cash"`
 		Balance *int64 `json:"balance" binding:"required"`
+		Icon    string `json:"icon" binding:"required"`
 		Color   string `json:"color" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		var ve validator.ValidationErrors
 		if errors.As(err, &ve) {
-			utils.Error(c, http.StatusUnprocessableEntity, "Validation failed", utils.FormatValidationError(ve))
+			utils.Error(c, http.StatusUnprocessableEntity, utils.TranslateError(services.ErrValidation), utils.FormatValidationError(ve))
 			return
 		}
-		utils.Error(c, http.StatusBadRequest, "Malformed request body", nil)
+		utils.Error(c, http.StatusBadRequest, utils.TranslateError(services.ErrMalformedRequest), nil)
 		return
 	}
 
@@ -49,6 +50,7 @@ func (h *AccountHandler) CreateAccount(c *gin.Context) {
 		Name:    req.Name,
 		Type:    req.Type,
 		Balance: *req.Balance,
+		Icon:    req.Icon,
 		Color:   req.Color,
 	}
 
@@ -66,7 +68,7 @@ func (h *AccountHandler) GetAccounts(c *gin.Context) {
 	val, exists := c.Get(utils.UserIDKey)
 	userID, ok := val.(uuid.UUID)
 	if !exists || !ok {
-		utils.Error(c, http.StatusUnauthorized, "Unauthorized", nil)
+		utils.Error(c, http.StatusUnauthorized, utils.TranslateError(services.ErrUnauthorized), nil)
 		return
 	}
 	accounts, err := h.service.GetAccounts(c.Request.Context(), userID)
@@ -75,5 +77,37 @@ func (h *AccountHandler) GetAccounts(c *gin.Context) {
 		utils.Error(c, http.StatusInternalServerError, errorMessage, nil)
 		return
 	}
-	utils.JSON(c, http.StatusOK, "User profile retrieved successfully", accounts)
+	utils.JSON(c, http.StatusOK, "Accounts retrieved successfully", accounts)
+}
+
+func (h *AccountHandler) GetAccount(c *gin.Context) {
+	accountIDStr := c.Param("id")
+	accountID, err := uuid.Parse(accountIDStr)
+
+	if err != nil {
+		utils.Error(c, http.StatusBadRequest, utils.TranslateError(services.ErrAccountNotFound), nil)
+		return
+	}
+
+	val, exists := c.Get(utils.UserIDKey)
+	userID, ok := val.(uuid.UUID)
+	if !exists || !ok {
+		utils.Error(c, http.StatusUnauthorized, utils.TranslateError(services.ErrUnauthorized), nil)
+		return
+	}
+
+	account, err := h.service.GetAccount(c.Request.Context(), accountID, userID)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, services.ErrAccountNotFound) {
+			statusCode = http.StatusNotFound
+		} else if errors.Is(err, services.ErrUnauthorized) {
+			statusCode = http.StatusForbidden
+		}
+
+		utils.Error(c, statusCode, utils.TranslateError(err), nil)
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, "Account retrieved successfully", account)
 }
