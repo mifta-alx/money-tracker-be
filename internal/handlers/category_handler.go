@@ -6,6 +6,7 @@ import (
 	"money-tracker/internal/pkg/utils"
 	"money-tracker/internal/services"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -63,7 +64,25 @@ func (h *CategoryHandler) CreateCategory(c *gin.Context) {
 		utils.Error(c, http.StatusBadRequest, errorMessage, nil)
 		return
 	}
-	utils.JSON(c, http.StatusCreated, "Category created successfully", category)
+
+	response := struct {
+		ID           uuid.UUID  `json:"id"`
+		AllocationID *uuid.UUID `json:"allocation_id"`
+		Name         string     `json:"name"`
+		Type         string     `json:"type"`
+		Icon         string     `json:"icon"`
+		Color        string     `json:"color"`
+		CreatedAt    time.Time  `json:"created_at"`
+	}{
+		ID:           category.ID,
+		AllocationID: category.AllocationID,
+		Name:         category.Name,
+		Type:         category.Type,
+		Icon:         category.Icon,
+		Color:        category.Color,
+		CreatedAt:    category.CreatedAt,
+	}
+	utils.JSON(c, http.StatusCreated, "Category created successfully", response)
 }
 
 func (h *CategoryHandler) GetCategories(c *gin.Context) {
@@ -101,7 +120,7 @@ func (h *CategoryHandler) GetCategory(c *gin.Context) {
 	category, err := h.service.GetCategory(c.Request.Context(), categoryID, userID)
 	if err != nil {
 		statusCode := http.StatusInternalServerError
-		if errors.Is(err, services.ErrAccountNotFound) {
+		if errors.Is(err, services.ErrCategoryNotFound) {
 			statusCode = http.StatusNotFound
 		} else if errors.Is(err, services.ErrUnauthorized) {
 			statusCode = http.StatusForbidden
@@ -161,15 +180,26 @@ func (h *CategoryHandler) UpdateCategory(c *gin.Context) {
 		utils.Error(c, statusCode, utils.TranslateError(err), nil)
 		return
 	}
-	utils.JSON(c, http.StatusOK, "Category updated successfully", gin.H{
-		"id":            category.ID,
-		"name":          category.Name,
-		"icon":          category.Icon,
-		"color":         category.Color,
-		"type":          category.Type,
-		"allocation_id": category.AllocationID,
-		"updated_at":    category.UpdatedAt,
-	})
+
+	response := struct {
+		ID           uuid.UUID  `json:"id"`
+		AllocationID *uuid.UUID `json:"allocation_id"`
+		Name         string     `json:"name"`
+		Type         string     `json:"type"`
+		Icon         string     `json:"icon"`
+		Color        string     `json:"color"`
+		UpdatedAt    time.Time  `json:"updated_at"`
+	}{
+		ID:           category.ID,
+		AllocationID: category.AllocationID,
+		Name:         category.Name,
+		Type:         category.Type,
+		Icon:         category.Icon,
+		Color:        category.Color,
+		UpdatedAt:    category.UpdatedAt,
+	}
+
+	utils.JSON(c, http.StatusOK, "Category updated successfully", response)
 }
 
 func (h *CategoryHandler) DeleteCategory(c *gin.Context) {

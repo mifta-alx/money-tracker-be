@@ -33,6 +33,9 @@ var errorMessages = map[string]string{
 	// Accounts Errors
 	"account_limit_reached": "You have reached the maximum number of accounts (10)",
 	"account_not_found":     "Account not found",
+
+	// Category Errors
+	"category_not_found": "Category not found",
 }
 
 func TranslateError(err error) string {
