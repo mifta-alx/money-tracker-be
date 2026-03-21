@@ -32,6 +32,10 @@ func SetupRouter() *gin.Engine {
 	accountService := services.NewAccountService(accountRepo)
 	accountHandler := handlers.NewAccountHandler(accountService)
 
+	categoryRepo := repository.NewCategoryRepository(db)
+	categoryService := services.NewCategoryService(categoryRepo)
+	categoryHandler := handlers.NewCategoryHandler(categoryService)
+
 	auth := v1.Group("/auth")
 	{
 		auth.POST("/register", authHandler.Register)
@@ -46,6 +50,14 @@ func SetupRouter() *gin.Engine {
 			accounts.GET("", accountHandler.GetAccounts)
 			accounts.POST("", accountHandler.CreateAccount)
 			accounts.GET("/:id", accountHandler.GetAccount)
+		}
+		categories := v1.Group("/categories")
+		{
+			categories.GET("", categoryHandler.GetCategories)
+			categories.POST("", categoryHandler.CreateCategory)
+			categories.GET("/:id", categoryHandler.GetCategory)
+			categories.PUT("/:id", categoryHandler.UpdateCategory)
+			categories.DELETE("/:id", categoryHandler.DeleteCategory)
 		}
 	}
 	return r
