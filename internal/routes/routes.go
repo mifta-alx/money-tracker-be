@@ -50,6 +50,8 @@ func SetupRouter() *gin.Engine {
 			accounts.GET("", accountHandler.GetAccounts)
 			accounts.POST("", accountHandler.CreateAccount)
 			accounts.GET("/:id", accountHandler.GetAccount)
+			accounts.PUT("/:id", accountHandler.UpdateAccount)
+			accounts.DELETE("/:id", accountHandler.DeleteAccount)
 		}
 		categories := v1.Group("/categories")
 		{

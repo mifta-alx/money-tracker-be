@@ -52,3 +52,25 @@ func (s *AccountService) GetAccount(ctx context.Context, id uuid.UUID, userID uu
 	}
 	return acc, nil
 }
+
+func (s *AccountService) UpdateAccount(ctx context.Context, req *models.Account) (*models.Account, error) {
+	err := s.repo.UpdateAccount(ctx, req)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrAccountNotFound
+		}
+		return nil, ErrInternal
+	}
+	return req, nil
+}
+
+func (s *AccountService) DeleteAccount(ctx context.Context, accountID, userID uuid.UUID) error {
+	err := s.repo.DeleteAccount(ctx, accountID, userID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrAccountNotFound
+		}
+		return ErrInternal
+	}
+	return nil
+}
