@@ -6,6 +6,7 @@ import (
 	"money-tracker/internal/pkg/utils"
 	"money-tracker/internal/services"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -60,8 +61,25 @@ func (h *AccountHandler) CreateAccount(c *gin.Context) {
 		utils.Error(c, http.StatusBadRequest, errorMessage, nil)
 		return
 	}
+	response := struct {
+		ID        uuid.UUID `json:"id"`
+		Name      string    `json:"name"`
+		Type      string    `json:"type"`
+		Balance   int64     `json:"balance"`
+		Icon      string    `json:"icon"`
+		Color     string    `json:"color"`
+		CreatedAt time.Time `json:"created_at"`
+	}{
+		ID:        account.ID,
+		Name:      account.Name,
+		Type:      account.Type,
+		Balance:   account.Balance,
+		Icon:      account.Icon,
+		Color:     account.Color,
+		CreatedAt: account.CreatedAt,
+	}
 
-	utils.JSON(c, http.StatusCreated, "Account created successfully", account)
+	utils.JSON(c, http.StatusCreated, "Account created successfully", response)
 }
 
 func (h *AccountHandler) GetAccounts(c *gin.Context) {
@@ -110,4 +128,97 @@ func (h *AccountHandler) GetAccount(c *gin.Context) {
 	}
 
 	utils.JSON(c, http.StatusOK, "Account retrieved successfully", account)
+}
+
+func (h *AccountHandler) UpdateAccount(c *gin.Context) {
+	accountID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		utils.Error(c, http.StatusBadRequest, utils.TranslateError(services.ErrMalformedRequest), nil)
+		return
+	}
+
+	val, _ := c.Get(utils.UserIDKey)
+	userID := val.(uuid.UUID)
+
+	var req struct {
+		Name    string `json:"name" binding:"required"`
+		Type    string `json:"type" binding:"required,oneof=Bank E-Wallet Cash"`
+		Balance *int64 `json:"balance"`
+		Icon    string `json:"icon" binding:"required"`
+		Color   string `json:"color" binding:"required"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		var ve validator.ValidationErrors
+		if errors.As(err, &ve) {
+			utils.Error(c, http.StatusUnprocessableEntity, utils.TranslateError(services.ErrValidation), utils.FormatValidationError(ve))
+			return
+		}
+		utils.Error(c, http.StatusBadRequest, utils.TranslateError(services.ErrMalformedRequest), nil)
+		return
+	}
+
+	updatedAccount := &models.Account{
+		ID:      accountID,
+		UserID:  userID,
+		Name:    req.Name,
+		Type:    req.Type,
+		Balance: *req.Balance,
+		Icon:    req.Icon,
+		Color:   req.Color,
+	}
+
+	account, err := h.service.UpdateAccount(c.Request.Context(), updatedAccount)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, services.ErrAccountNotFound) {
+			statusCode = http.StatusNotFound
+		}
+		utils.Error(c, statusCode, utils.TranslateError(err), nil)
+		return
+	}
+
+	response := struct {
+		ID        uuid.UUID `json:"id"`
+		Name      string    `json:"name"`
+		Type      string    `json:"type"`
+		Balance   int64     `json:"balance"`
+		Icon      string    `json:"icon"`
+		Color     string    `json:"color"`
+		UpdatedAt time.Time `json:"updated_at"`
+	}{
+		ID:        account.ID,
+		Name:      account.Name,
+		Type:      account.Type,
+		Balance:   account.Balance,
+		Icon:      account.Icon,
+		Color:     account.Color,
+		UpdatedAt: account.UpdatedAt,
+	}
+
+	utils.JSON(c, http.StatusOK, "Account updated successfully", response)
+}
+
+func (h *AccountHandler) DeleteAccount(c *gin.Context) {
+	accountID, err := uuid.Parse(c.Param("id"))
+
+	if err != nil {
+		utils.Error(c, http.StatusBadRequest, utils.TranslateError(services.ErrMalformedRequest), nil)
+		return
+	}
+
+	val, _ := c.Get(utils.UserIDKey)
+	userID := val.(uuid.UUID)
+
+	err = h.service.DeleteAccount(c.Request.Context(), accountID, userID)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, services.ErrAccountNotFound) {
+			statusCode = http.StatusNotFound
+		}
+		utils.Error(c, statusCode, utils.TranslateError(err), nil)
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, "Account deleted successfully", nil)
 }

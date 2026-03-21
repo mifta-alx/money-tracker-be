@@ -18,24 +18,24 @@ func NewAccountRepository(db *sql.DB) *AccountRepository {
 	}
 }
 
-func (r *AccountRepository) CreateAccount(ctx context.Context, u *models.Account) error {
+func (r *AccountRepository) CreateAccount(ctx context.Context, a *models.Account) error {
 	query := `INSERT INTO accounts (user_id, name, type, balance, icon, color) 
               VALUES ($1, $2, $3, $4, $5, $6) 
               RETURNING id, created_at, updated_at`
 	err := r.DB.QueryRowContext(ctx, query,
-		u.UserID,
-		u.Name,
-		u.Type,
-		u.Balance,
-		u.Icon,
-		u.Color,
-	).Scan(&u.ID, &u.CreatedAt, &u.UpdatedAt)
+		a.UserID,
+		a.Name,
+		a.Type,
+		a.Balance,
+		a.Icon,
+		a.Color,
+	).Scan(&a.ID, &a.CreatedAt, &a.UpdatedAt)
 
 	return err
 }
 
 func (r *AccountRepository) GetAccounts(ctx context.Context, userID uuid.UUID) ([]*models.Account, error) {
-	query := `SELECT id, name, type, balance, color, icon, created_at FROM accounts WHERE user_id = $1`
+	query := `SELECT id, name, type, balance, color, icon, created_at, updated_at FROM accounts WHERE user_id = $1`
 
 	rows, err := r.DB.QueryContext(ctx, query, userID)
 	if err != nil {
@@ -52,7 +52,7 @@ func (r *AccountRepository) GetAccounts(ctx context.Context, userID uuid.UUID) (
 	var accounts []*models.Account
 	for rows.Next() {
 		var acc models.Account
-		err := rows.Scan(&acc.ID, &acc.Name, &acc.Type, &acc.Balance, &acc.Icon, &acc.Color, &acc.CreatedAt)
+		err := rows.Scan(&acc.ID, &acc.Name, &acc.Type, &acc.Balance, &acc.Icon, &acc.Color, &acc.CreatedAt, &acc.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
@@ -67,11 +67,33 @@ func (r *AccountRepository) GetAccounts(ctx context.Context, userID uuid.UUID) (
 }
 
 func (r *AccountRepository) GetAccount(ctx context.Context, id, userID uuid.UUID) (*models.Account, error) {
-	query := `SELECT id, name, type, balance, icon, color, created_at FROM accounts WHERE id = $1 AND user_id = $2`
+	query := `SELECT id, name, type, balance, icon, color, created_at, updated_at FROM accounts WHERE id = $1 AND user_id = $2`
 	var acc models.Account
-	err := r.DB.QueryRowContext(ctx, query, id, userID).Scan(&acc.ID, &acc.Name, &acc.Type, &acc.Balance, &acc.Icon, &acc.Color, &acc.CreatedAt)
+	err := r.DB.QueryRowContext(ctx, query, id, userID).Scan(&acc.ID, &acc.Name, &acc.Type, &acc.Balance, &acc.Icon, &acc.Color, &acc.CreatedAt, &acc.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
 	return &acc, nil
+}
+
+func (r *AccountRepository) UpdateAccount(ctx context.Context, a *models.Account) error {
+	query := `UPDATE accounts SET name = $1, type = $2, balance = $3, icon = $4, color = $5 WHERE id = $6 AND user_id = $7 RETURNING updated_at`
+
+	err := r.DB.QueryRowContext(ctx, query, a.Name, a.Type, a.Balance, a.Icon, a.Color, a.ID, a.UserID).Scan(&a.UpdatedAt)
+	return err
+}
+
+func (r *AccountRepository) DeleteAccount(ctx context.Context, id, userID uuid.UUID) error {
+	query := `DELETE FROM accounts WHERE id = $1 AND user_id = $2`
+
+	result, err := r.DB.ExecContext(ctx, query, id, userID)
+	if err != nil {
+		return err
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if rowsAffected == 0 {
+		return sql.ErrNoRows
+	}
+	return err
 }
