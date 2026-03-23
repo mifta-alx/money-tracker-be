@@ -1,161 +1,239 @@
 package handlers
 
 import (
-	"database/sql"
 	"errors"
 	"money-tracker/internal/models"
+	"money-tracker/internal/pkg/utils"
+	"money-tracker/internal/services"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 )
 
 type TransactionHandler struct {
-	DB *sql.DB
+	service *services.TransactionService
 }
 
-func NewTransactionHandler(db *sql.DB) *TransactionHandler {
-	return &TransactionHandler{DB: db}
-}
-
-func (h *TransactionHandler) GetAllTransactions(c *gin.Context) {
-	rows, err := h.DB.Query(`SELECT id, title, amount, category, created_at FROM transactions ORDER BY created_at DESC`)
-
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	defer rows.Close()
-
-	var transactions []map[string]interface{}
-
-	for rows.Next() {
-		var id int
-		var title string
-		var amount float64
-		var category string
-		var createdAt time.Time
-
-		err := rows.Scan(&id, &title, &amount, &category, &createdAt)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-			return
-		}
-
-		transactions = append(transactions, gin.H{"id": id, "title": title, "amount": amount, "category": category, "created_at": createdAt})
-	}
-
-	if err := rows.Err(); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, transactions)
-}
-
-func (h *TransactionHandler) GetTransactionById(c *gin.Context) {
-	idParam := c.Param("id")
-	id, err := strconv.Atoi(idParam)
-
-	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
-		return
-	}
-
-	row := h.DB.QueryRow(`SELECT id, title, amount, category, created_at FROM transactions WHERE id = $1`, id)
-
-	var t models.Transactions
-
-	err = row.Scan(
-		&t.ID,
-		&t.Title,
-		&t.Amount,
-		&t.Category,
-		&t.CreatedAt,
-	)
-
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			c.JSON(http.StatusNotFound, gin.H{"error": "Transaction not found"})
-			return
-		}
-
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
-		return
-	}
-
-	c.JSON(http.StatusOK, t)
+func NewTransactionHandler(s *services.TransactionService) *TransactionHandler {
+	return &TransactionHandler{service: s}
 }
 
 func (h *TransactionHandler) CreateTransaction(c *gin.Context) {
+	val, exists := c.Get(utils.UserIDKey)
+	if !exists {
+		utils.Error(c, http.StatusUnauthorized, utils.TranslateError(services.ErrUnauthorized), nil)
+		return
+	}
+
+	userID := val.(uuid.UUID)
 	var req struct {
-		Title    string  `json:"title"`
-		Amount   float64 `json:"amount"`
-		Category string  `json:"category"`
+		AccountID  uuid.UUID  `json:"account_id" binding:"required"`
+		CategoryID *uuid.UUID `json:"category_id"`
+		Title      string     `json:"title" binding:"required"`
+		Type       string     `json:"type" binding:"required,oneof=expense income"`
+		Amount     *int64     `json:"amount" binding:"required,min=0"`
+		Date       time.Time  `json:"date" binding:"required"`
+		Notes      *string    `json:"notes"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		var ve validator.ValidationErrors
+		if errors.As(err, &ve) {
+			utils.Error(c, http.StatusUnprocessableEntity, utils.TranslateError(services.ErrValidation), utils.FormatValidationError(ve))
+			return
+		}
+		utils.Error(c, http.StatusBadRequest, utils.TranslateError(services.ErrMalformedRequest), nil)
 		return
 	}
 
-	query := `INSERT INTO transactions (title, amount, category) VALUES ($1, $2, $3) RETURNING id`
-	var id int
-	err := h.DB.QueryRow(query, req.Title, req.Amount, req.Category).Scan(&id)
+	newTransaction := &models.Transaction{
+		UserID:     userID,
+		AccountID:  req.AccountID,
+		CategoryID: req.CategoryID,
+		Title:      req.Title,
+		Type:       req.Type,
+		Amount:     *req.Amount,
+		Date:       req.Date,
+		Notes:      req.Notes,
+	}
 
+	transaction, err := h.service.CreateTransaction(c.Request.Context(), newTransaction)
+	errorMessage := utils.TranslateError(err)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		utils.Error(c, http.StatusBadRequest, errorMessage, nil)
 		return
 	}
 
-	c.JSON(http.StatusCreated, gin.H{"id": id})
+	response := struct {
+		ID         uuid.UUID  `json:"id"`
+		AccountID  uuid.UUID  `json:"account_id"`
+		CategoryID *uuid.UUID `json:"category_id"`
+		Title      string     `json:"title"`
+		Type       string     `json:"type"`
+		Amount     int64      `json:"amount"`
+		Date       time.Time  `json:"date"`
+		Notes      *string    `json:"notes"`
+		CreatedAt  time.Time  `json:"created_at"`
+	}{
+		ID:         transaction.ID,
+		AccountID:  transaction.AccountID,
+		CategoryID: transaction.CategoryID,
+		Title:      transaction.Title,
+		Type:       transaction.Type,
+		Amount:     transaction.Amount,
+		Date:       transaction.Date,
+		Notes:      transaction.Notes,
+		CreatedAt:  transaction.CreatedAt,
+	}
+	utils.JSON(c, http.StatusCreated, "Transaction created successfully", response)
 }
 
 func (h *TransactionHandler) UpdateTransaction(c *gin.Context) {
-	idParam := c.Param("id")
-	id, err := strconv.Atoi(idParam)
-
+	transactionID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		utils.Error(c, http.StatusBadRequest, utils.TranslateError(services.ErrMalformedRequest), nil)
 		return
 	}
 
+	val, _ := c.Get(utils.UserIDKey)
+	userID := val.(uuid.UUID)
+
 	var req struct {
-		Title    string  `json:"title"`
-		Amount   float64 `json:"amount"`
-		Category string  `json:"category"`
+		AccountID  uuid.UUID  `json:"account_id" binding:"required"`
+		CategoryID *uuid.UUID `json:"category_id"`
+		Title      string     `json:"title" binding:"required"`
+		Type       string     `json:"type" binding:"required,oneof=expense income"`
+		Amount     *int64     `json:"amount" binding:"required,min=0"`
+		Date       time.Time  `json:"date" binding:"required"`
+		Notes      *string    `json:"notes"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		var ve validator.ValidationErrors
+		if errors.As(err, &ve) {
+			utils.Error(c, http.StatusUnprocessableEntity, utils.TranslateError(services.ErrValidation), utils.FormatValidationError(ve))
+			return
+		}
+		utils.Error(c, http.StatusBadRequest, utils.TranslateError(services.ErrMalformedRequest), nil)
 		return
 	}
 
-	_, err = h.DB.Exec(`UPDATE transactions SET title=$1, amount=$2, category=$3 WHERE id = $4`, req.Title, req.Amount, req.Category, id)
-
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	updatedTransaction := &models.Transaction{
+		ID:         transactionID,
+		UserID:     userID,
+		AccountID:  req.AccountID,
+		CategoryID: req.CategoryID,
+		Title:      req.Title,
+		Type:       req.Type,
+		Amount:     *req.Amount,
+		Date:       req.Date,
+		Notes:      req.Notes,
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Transaction updated successfully"})
+	transaction, err := h.service.UpdateTransaction(c.Request.Context(), updatedTransaction)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, services.ErrTransactionNotFound) {
+			statusCode = http.StatusNotFound
+		}
+		utils.Error(c, statusCode, utils.TranslateError(err), nil)
+		return
+	}
+
+	response := struct {
+		ID         uuid.UUID  `json:"id"`
+		AccountID  uuid.UUID  `json:"account_id"`
+		CategoryID *uuid.UUID `json:"category_id"`
+		Title      string     `json:"title"`
+		Type       string     `json:"type"`
+		Amount     int64      `json:"amount"`
+		Date       time.Time  `json:"date"`
+		Notes      *string    `json:"notes"`
+		UpdatedAt  time.Time  `json:"updated_at"`
+	}{
+		ID:         transaction.ID,
+		AccountID:  transaction.AccountID,
+		CategoryID: transaction.CategoryID,
+		Title:      transaction.Title,
+		Type:       transaction.Type,
+		Amount:     transaction.Amount,
+		Date:       transaction.Date,
+		Notes:      transaction.Notes,
+		UpdatedAt:  transaction.UpdatedAt,
+	}
+	utils.JSON(c, http.StatusOK, "Transaction updated successfully", response)
 }
 
 func (h *TransactionHandler) DeleteTransaction(c *gin.Context) {
-	idParam := c.Param("id")
-
-	id, err := strconv.Atoi(idParam)
+	transactionID, err := uuid.Parse(c.Param("id"))
 
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		utils.Error(c, http.StatusBadRequest, utils.TranslateError(services.ErrMalformedRequest), nil)
 		return
 	}
-	_, err = h.DB.Exec(`DELETE FROM transactions WHERE id = $1`, id)
 
+	val, _ := c.Get(utils.UserIDKey)
+	userID := val.(uuid.UUID)
+
+	err = h.service.DeleteTransaction(c.Request.Context(), transactionID, userID)
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, services.ErrTransactionNotFound) {
+			statusCode = http.StatusNotFound
+		}
+		utils.Error(c, statusCode, utils.TranslateError(err), nil)
+		return
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Transaction deleted successfully"})
+	utils.JSON(c, http.StatusOK, "Transaction deleted successfully", nil)
+}
+
+func (h *TransactionHandler) GetTransactions(c *gin.Context) {
+	val, exists := c.Get(utils.UserIDKey)
+	userID, ok := val.(uuid.UUID)
+	if !exists || !ok {
+		utils.Error(c, http.StatusUnauthorized, utils.TranslateError(services.ErrUnauthorized), nil)
+		return
+	}
+	transactions, err := h.service.GetTransactions(c.Request.Context(), userID)
+	if err != nil {
+		errorMessage := utils.TranslateError(err)
+		utils.Error(c, http.StatusInternalServerError, errorMessage, nil)
+		return
+	}
+	utils.JSON(c, http.StatusOK, "Transactions retrieved successfully", transactions)
+}
+
+func (h *TransactionHandler) GetTransaction(c *gin.Context) {
+	transactionIDStr := c.Param("id")
+	transactionID, err := uuid.Parse(transactionIDStr)
+
+	if err != nil {
+		utils.Error(c, http.StatusBadRequest, utils.TranslateError(services.ErrCategoryNotFound), nil)
+		return
+	}
+
+	val, exists := c.Get(utils.UserIDKey)
+	userID, ok := val.(uuid.UUID)
+	if !exists || !ok {
+		utils.Error(c, http.StatusUnauthorized, utils.TranslateError(services.ErrUnauthorized), nil)
+		return
+	}
+
+	transaction, err := h.service.GetTransaction(c.Request.Context(), transactionID, userID)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, services.ErrTransactionNotFound) {
+			statusCode = http.StatusNotFound
+		} else if errors.Is(err, services.ErrUnauthorized) {
+			statusCode = http.StatusForbidden
+		}
+
+		utils.Error(c, statusCode, utils.TranslateError(err), nil)
+		return
+	}
+	utils.JSON(c, http.StatusOK, "Transaction retrieved successfully", transaction)
 }
