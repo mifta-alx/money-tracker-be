@@ -82,54 +82,6 @@ func (h *AccountHandler) CreateAccount(c *gin.Context) {
 	utils.JSON(c, http.StatusCreated, "Account created successfully", response)
 }
 
-func (h *AccountHandler) GetAccounts(c *gin.Context) {
-	val, exists := c.Get(utils.UserIDKey)
-	userID, ok := val.(uuid.UUID)
-	if !exists || !ok {
-		utils.Error(c, http.StatusUnauthorized, utils.TranslateError(services.ErrUnauthorized), nil)
-		return
-	}
-	accounts, err := h.service.GetAccounts(c.Request.Context(), userID)
-	if err != nil {
-		errorMessage := utils.TranslateError(err)
-		utils.Error(c, http.StatusInternalServerError, errorMessage, nil)
-		return
-	}
-	utils.JSON(c, http.StatusOK, "Accounts retrieved successfully", accounts)
-}
-
-func (h *AccountHandler) GetAccount(c *gin.Context) {
-	accountIDStr := c.Param("id")
-	accountID, err := uuid.Parse(accountIDStr)
-
-	if err != nil {
-		utils.Error(c, http.StatusBadRequest, utils.TranslateError(services.ErrAccountNotFound), nil)
-		return
-	}
-
-	val, exists := c.Get(utils.UserIDKey)
-	userID, ok := val.(uuid.UUID)
-	if !exists || !ok {
-		utils.Error(c, http.StatusUnauthorized, utils.TranslateError(services.ErrUnauthorized), nil)
-		return
-	}
-
-	account, err := h.service.GetAccount(c.Request.Context(), accountID, userID)
-	if err != nil {
-		statusCode := http.StatusInternalServerError
-		if errors.Is(err, services.ErrAccountNotFound) {
-			statusCode = http.StatusNotFound
-		} else if errors.Is(err, services.ErrUnauthorized) {
-			statusCode = http.StatusForbidden
-		}
-
-		utils.Error(c, statusCode, utils.TranslateError(err), nil)
-		return
-	}
-
-	utils.JSON(c, http.StatusOK, "Account retrieved successfully", account)
-}
-
 func (h *AccountHandler) UpdateAccount(c *gin.Context) {
 	accountID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -221,4 +173,52 @@ func (h *AccountHandler) DeleteAccount(c *gin.Context) {
 	}
 
 	utils.JSON(c, http.StatusOK, "Account deleted successfully", nil)
+}
+
+func (h *AccountHandler) GetAccounts(c *gin.Context) {
+	val, exists := c.Get(utils.UserIDKey)
+	userID, ok := val.(uuid.UUID)
+	if !exists || !ok {
+		utils.Error(c, http.StatusUnauthorized, utils.TranslateError(services.ErrUnauthorized), nil)
+		return
+	}
+	accounts, err := h.service.GetAccounts(c.Request.Context(), userID)
+	if err != nil {
+		errorMessage := utils.TranslateError(err)
+		utils.Error(c, http.StatusInternalServerError, errorMessage, nil)
+		return
+	}
+	utils.JSON(c, http.StatusOK, "Accounts retrieved successfully", accounts)
+}
+
+func (h *AccountHandler) GetAccount(c *gin.Context) {
+	accountIDStr := c.Param("id")
+	accountID, err := uuid.Parse(accountIDStr)
+
+	if err != nil {
+		utils.Error(c, http.StatusBadRequest, utils.TranslateError(services.ErrAccountNotFound), nil)
+		return
+	}
+
+	val, exists := c.Get(utils.UserIDKey)
+	userID, ok := val.(uuid.UUID)
+	if !exists || !ok {
+		utils.Error(c, http.StatusUnauthorized, utils.TranslateError(services.ErrUnauthorized), nil)
+		return
+	}
+
+	account, err := h.service.GetAccount(c.Request.Context(), accountID, userID)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, services.ErrAccountNotFound) {
+			statusCode = http.StatusNotFound
+		} else if errors.Is(err, services.ErrUnauthorized) {
+			statusCode = http.StatusForbidden
+		}
+
+		utils.Error(c, statusCode, utils.TranslateError(err), nil)
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, "Account retrieved successfully", account)
 }
