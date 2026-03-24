@@ -51,7 +51,7 @@ func (r *AccountRepository) DeleteAccount(ctx context.Context, id, userID uuid.U
 }
 
 func (r *AccountRepository) GetAccounts(ctx context.Context, userID uuid.UUID) ([]*models.Account, error) {
-	query := `SELECT id, name, type, balance, color, icon, created_at, updated_at FROM accounts WHERE user_id = $1`
+	query := `SELECT id, name, type, balance, color, icon, created_at, updated_at FROM accounts WHERE user_id = $1 ORDER BY created_at`
 
 	rows, err := r.DB.QueryContext(ctx, query, userID)
 	if err != nil {

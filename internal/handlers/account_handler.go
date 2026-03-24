@@ -130,25 +130,7 @@ func (h *AccountHandler) UpdateAccount(c *gin.Context) {
 		return
 	}
 
-	response := struct {
-		ID        uuid.UUID `json:"id"`
-		Name      string    `json:"name"`
-		Type      string    `json:"type"`
-		Balance   int64     `json:"balance"`
-		Icon      string    `json:"icon"`
-		Color     string    `json:"color"`
-		UpdatedAt time.Time `json:"updated_at"`
-	}{
-		ID:        account.ID,
-		Name:      account.Name,
-		Type:      account.Type,
-		Balance:   account.Balance,
-		Icon:      account.Icon,
-		Color:     account.Color,
-		UpdatedAt: account.UpdatedAt,
-	}
-
-	utils.JSON(c, http.StatusOK, "Account updated successfully", response)
+	utils.JSON(c, http.StatusOK, "Account updated successfully", account)
 }
 
 func (h *AccountHandler) DeleteAccount(c *gin.Context) {
