@@ -85,54 +85,6 @@ func (h *CategoryHandler) CreateCategory(c *gin.Context) {
 	utils.JSON(c, http.StatusCreated, "Category created successfully", response)
 }
 
-func (h *CategoryHandler) GetCategories(c *gin.Context) {
-	val, exists := c.Get(utils.UserIDKey)
-	userID, ok := val.(uuid.UUID)
-	if !exists || !ok {
-		utils.Error(c, http.StatusUnauthorized, utils.TranslateError(services.ErrUnauthorized), nil)
-		return
-	}
-	categories, err := h.service.GetCategories(c.Request.Context(), userID)
-	if err != nil {
-		errorMessage := utils.TranslateError(err)
-		utils.Error(c, http.StatusInternalServerError, errorMessage, nil)
-		return
-	}
-	utils.JSON(c, http.StatusOK, "Categories retrieved successfully", categories)
-}
-
-func (h *CategoryHandler) GetCategory(c *gin.Context) {
-	categoryIDStr := c.Param("id")
-	categoryID, err := uuid.Parse(categoryIDStr)
-
-	if err != nil {
-		utils.Error(c, http.StatusBadRequest, utils.TranslateError(services.ErrCategoryNotFound), nil)
-		return
-	}
-
-	val, exists := c.Get(utils.UserIDKey)
-	userID, ok := val.(uuid.UUID)
-	if !exists || !ok {
-		utils.Error(c, http.StatusUnauthorized, utils.TranslateError(services.ErrUnauthorized), nil)
-		return
-	}
-
-	category, err := h.service.GetCategory(c.Request.Context(), categoryID, userID)
-	if err != nil {
-		statusCode := http.StatusInternalServerError
-		if errors.Is(err, services.ErrCategoryNotFound) {
-			statusCode = http.StatusNotFound
-		} else if errors.Is(err, services.ErrUnauthorized) {
-			statusCode = http.StatusForbidden
-		}
-
-		utils.Error(c, statusCode, utils.TranslateError(err), nil)
-		return
-	}
-
-	utils.JSON(c, http.StatusOK, "Category retrieved successfully", category)
-}
-
 func (h *CategoryHandler) UpdateCategory(c *gin.Context) {
 	categoryID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -224,4 +176,52 @@ func (h *CategoryHandler) DeleteCategory(c *gin.Context) {
 	}
 
 	utils.JSON(c, http.StatusOK, "Category deleted successfully", nil)
+}
+
+func (h *CategoryHandler) GetCategories(c *gin.Context) {
+	val, exists := c.Get(utils.UserIDKey)
+	userID, ok := val.(uuid.UUID)
+	if !exists || !ok {
+		utils.Error(c, http.StatusUnauthorized, utils.TranslateError(services.ErrUnauthorized), nil)
+		return
+	}
+	categories, err := h.service.GetCategories(c.Request.Context(), userID)
+	if err != nil {
+		errorMessage := utils.TranslateError(err)
+		utils.Error(c, http.StatusInternalServerError, errorMessage, nil)
+		return
+	}
+	utils.JSON(c, http.StatusOK, "Categories retrieved successfully", categories)
+}
+
+func (h *CategoryHandler) GetCategory(c *gin.Context) {
+	categoryIDStr := c.Param("id")
+	categoryID, err := uuid.Parse(categoryIDStr)
+
+	if err != nil {
+		utils.Error(c, http.StatusBadRequest, utils.TranslateError(services.ErrCategoryNotFound), nil)
+		return
+	}
+
+	val, exists := c.Get(utils.UserIDKey)
+	userID, ok := val.(uuid.UUID)
+	if !exists || !ok {
+		utils.Error(c, http.StatusUnauthorized, utils.TranslateError(services.ErrUnauthorized), nil)
+		return
+	}
+
+	category, err := h.service.GetCategory(c.Request.Context(), categoryID, userID)
+	if err != nil {
+		statusCode := http.StatusInternalServerError
+		if errors.Is(err, services.ErrCategoryNotFound) {
+			statusCode = http.StatusNotFound
+		} else if errors.Is(err, services.ErrUnauthorized) {
+			statusCode = http.StatusForbidden
+		}
+
+		utils.Error(c, statusCode, utils.TranslateError(err), nil)
+		return
+	}
+
+	utils.JSON(c, http.StatusOK, "Category retrieved successfully", category)
 }
