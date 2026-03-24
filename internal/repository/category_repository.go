@@ -42,7 +42,7 @@ func (r *CategoryRepository) DeleteCategory(ctx context.Context, id, userID uuid
 }
 
 func (r *CategoryRepository) GetCategories(ctx context.Context, userID uuid.UUID) ([]*models.Category, error) {
-	query := `SELECT id, allocation_id, name, type, icon, color, created_at, updated_at FROM categories WHERE user_id = $1`
+	query := `SELECT id, allocation_id, name, type, icon, color, created_at, updated_at FROM categories WHERE user_id = $1 ORDER BY created_at`
 
 	rows, err := r.DB.QueryContext(ctx, query, userID)
 	if err != nil {
