@@ -2,8 +2,6 @@ package utils
 
 import (
 	"errors"
-	"fmt"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-playground/validator/v10"
@@ -34,26 +32,45 @@ func Error(c *gin.Context, statusCode int, message string, errs interface{}) {
 
 func FormatValidationError(err error) map[string]string {
 	errorsMap := make(map[string]string)
+
+	fieldLabels := map[string]string{
+		"account_id":  "Account",
+		"category_id": "Category",
+		"amount":      "Amount",
+		"title":       "Title",
+		"type":        "Type",
+		"date":        "Date",
+		"notes":       "Notes",
+		"name":        "Name",
+		"email":       "Email",
+		"password":    "Password",
+	}
+
+	tagMessages := map[string]string{
+		"required": "is required",
+		"oneof":    "is invalid",
+		"gt":       "must be greater than 0",
+		"gte":      "must be at least 0",
+		"email":    "must be a valid email address",
+		"uuid":     "is not a valid identifier",
+		"min":      "is too short",
+	}
+
 	var ve validator.ValidationErrors
 	if errors.As(err, &ve) {
 		for _, fe := range ve {
-			fieldName := strings.ToLower(fe.Field())
-			var msg string
-			switch fe.Tag() {
-			case "required":
-				msg = fmt.Sprintf("%s is required", fieldName)
-			case "email":
-				msg = fmt.Sprintf("%s must be a valid email", fieldName)
-			case "oneof":
-				msg = fmt.Sprintf("%s must be one of: %s", fieldName, fe.Param())
-			case "max":
-				msg = fmt.Sprintf("%s must not exceed %s characters", fieldName, fe.Param())
-			case "min":
-				msg = fmt.Sprintf("%s must be at least %s characters", fieldName, fe.Param())
-			default:
-				msg = fmt.Sprintf("%s is invalid", fieldName)
+			field := fe.Field()
+			tag := fe.Tag()
+
+			label, ok := fieldLabels[field]
+			if !ok {
+				label = field
 			}
-			errorsMap[strings.ToLower(fieldName)] = msg
+			if msg, ok := tagMessages[tag]; ok {
+				errorsMap[field] = label + " " + msg
+			} else {
+				errorsMap[field] = label + " is invalid"
+			}
 		}
 		return errorsMap
 	}

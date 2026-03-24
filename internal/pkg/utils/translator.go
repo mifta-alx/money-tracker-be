@@ -36,6 +36,9 @@ var errorMessages = map[string]string{
 
 	// Category Errors
 	"category_not_found": "Category not found",
+
+	// Transaction Errors
+	"transaction_not_found": "Transaction not found",
 }
 
 func TranslateError(err error) string {
