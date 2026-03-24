@@ -133,25 +133,7 @@ func (h *CategoryHandler) UpdateCategory(c *gin.Context) {
 		return
 	}
 
-	response := struct {
-		ID           uuid.UUID  `json:"id"`
-		AllocationID *uuid.UUID `json:"allocation_id"`
-		Name         string     `json:"name"`
-		Type         string     `json:"type"`
-		Icon         string     `json:"icon"`
-		Color        string     `json:"color"`
-		UpdatedAt    time.Time  `json:"updated_at"`
-	}{
-		ID:           category.ID,
-		AllocationID: category.AllocationID,
-		Name:         category.Name,
-		Type:         category.Type,
-		Icon:         category.Icon,
-		Color:        category.Color,
-		UpdatedAt:    category.UpdatedAt,
-	}
-
-	utils.JSON(c, http.StatusOK, "Category updated successfully", response)
+	utils.JSON(c, http.StatusOK, "Category updated successfully", category)
 }
 
 func (h *CategoryHandler) DeleteCategory(c *gin.Context) {
