@@ -6,6 +6,7 @@ var (
 	ErrAccountNotFound         = errors.New("account_not_found")
 	ErrCategoryNotFound        = errors.New("category_not_found")
 	ErrTransactionNotFound     = errors.New("transaction_not_found")
+	ErrBudgetNotFound          = errors.New("budget_not_found")
 	ErrUserNotFound            = errors.New("user_not_found")
 	ErrInternal                = errors.New("internal_server_error")
 	ErrAccountLimitReached     = errors.New("account_limit_reached")

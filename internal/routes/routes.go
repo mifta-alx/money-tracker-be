@@ -36,6 +36,10 @@ func SetupRouter() *gin.Engine {
 	categoryService := services.NewCategoryService(categoryRepo)
 	categoryHandler := handlers.NewCategoryHandler(categoryService)
 
+	budgetRepo := repository.NewBudgetAllocationRepository(db)
+	budgetService := services.NewBudgetAllocationService(budgetRepo)
+	budgetHandler := handlers.NewBudgetAllocationHandler(budgetService)
+
 	transactionRepo := repository.NewTransactionRepository(db)
 	transactionService := services.NewTransactionService(transactionRepo, db)
 	transactionHandler := handlers.NewTransactionHandler(transactionService)
@@ -64,6 +68,14 @@ func SetupRouter() *gin.Engine {
 			categories.GET("/:id", categoryHandler.GetCategory)
 			categories.PUT("/:id", categoryHandler.UpdateCategory)
 			categories.DELETE("/:id", categoryHandler.DeleteCategory)
+		}
+		budgets := v1.Group("/budgets")
+		{
+			budgets.GET("", budgetHandler.GetBudgetAllocations)
+			budgets.POST("", budgetHandler.CreateBudgetAllocation)
+			budgets.GET("/:id", budgetHandler.GetBudgetAllocation)
+			budgets.PUT("/:id", budgetHandler.UpdateBudgetAllocation)
+			budgets.DELETE("/:id", budgetHandler.DeleteBudgetAllocation)
 		}
 		transactions := v1.Group("/transactions")
 		{
