@@ -61,7 +61,7 @@ func (r *TransactionRepository) GetTransactionWithTx(ctx context.Context, tx *sq
 }
 
 func (r *TransactionRepository) GetTransactions(ctx context.Context, userID uuid.UUID) ([]*models.Transaction, error) {
-	query := `SELECT id, account_id, category_id, title, type, amount, date, notes, created_at, updated_at FROM transactions WHERE user_id = $1`
+	query := `SELECT id, account_id, category_id, title, type, amount, date, notes, created_at, updated_at FROM transactions WHERE user_id = $1 ORDER BY created_at DESC`
 
 	rows, err := r.DB.QueryContext(ctx, query, userID)
 	if err != nil {
