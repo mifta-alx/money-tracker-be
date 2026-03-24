@@ -26,9 +26,12 @@ var errorMessages = map[string]string{
 	"invalid_google_token":       "Invalid token, please try again later",
 
 	// General Errors
-	"internal_server_error": "An unexpected error occurred on our server",
-	"validation_error":      "Validation failed",
-	"malformed_request":     "Malformed request",
+	"internal_server_error":      "An unexpected error occurred on our server",
+	"validation_error":           "Validation failed",
+	"malformed_request":          "Malformed request",
+	"missing_required_fields":    "Please fill in all required fields.",
+	"balance_cannot_be_negative": "Balance cannot be less than zero.",
+	"amount_cannot_be_negative":  "Amount cannot be less than zero.",
 
 	// Accounts Errors
 	"account_limit_reached": "You have reached the maximum number of accounts (10)",
@@ -41,7 +44,8 @@ var errorMessages = map[string]string{
 	"transaction_not_found": "Transaction not found",
 
 	// Budget Errors
-	"budget_not_found": "Budget not found",
+	"budget_not_found":    "Budget not found",
+	"percentage_exceeded": "Total budget allocation cannot exceed 100%. Please reduce another allocation first.",
 }
 
 func TranslateError(err error) string {
