@@ -39,6 +39,9 @@ var errorMessages = map[string]string{
 
 	// Transaction Errors
 	"transaction_not_found": "Transaction not found",
+
+	// Budget Errors
+	"budget_not_found": "Budget not found",
 }
 
 func TranslateError(err error) string {
