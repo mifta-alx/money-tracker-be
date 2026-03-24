@@ -142,29 +142,7 @@ func (h *TransactionHandler) UpdateTransaction(c *gin.Context) {
 		utils.Error(c, statusCode, utils.TranslateError(err), nil)
 		return
 	}
-
-	response := struct {
-		ID         uuid.UUID  `json:"id"`
-		AccountID  uuid.UUID  `json:"account_id"`
-		CategoryID *uuid.UUID `json:"category_id"`
-		Title      string     `json:"title"`
-		Type       string     `json:"type"`
-		Amount     int64      `json:"amount"`
-		Date       time.Time  `json:"date"`
-		Notes      *string    `json:"notes"`
-		UpdatedAt  time.Time  `json:"updated_at"`
-	}{
-		ID:         transaction.ID,
-		AccountID:  transaction.AccountID,
-		CategoryID: transaction.CategoryID,
-		Title:      transaction.Title,
-		Type:       transaction.Type,
-		Amount:     transaction.Amount,
-		Date:       transaction.Date,
-		Notes:      transaction.Notes,
-		UpdatedAt:  transaction.UpdatedAt,
-	}
-	utils.JSON(c, http.StatusOK, "Transaction updated successfully", response)
+	utils.JSON(c, http.StatusOK, "Transaction updated successfully", transaction)
 }
 
 func (h *TransactionHandler) DeleteTransaction(c *gin.Context) {
