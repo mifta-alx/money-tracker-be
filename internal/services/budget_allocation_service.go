@@ -19,14 +19,21 @@ func NewBudgetAllocationService(r *repository.BudgetAllocationRepository) *Budge
 }
 
 func (s *BudgetAllocationService) CreateBudgetAllocation(ctx context.Context, req *models.BudgetAllocation) (*models.BudgetAllocation, error) {
-	if req.Name == "" {
+	if req.Name == "" || req.Percentage < 0 {
 		return nil, ErrMissingRequiredFields
 	}
 	if req.TargetAmount < 0 {
-		return nil, ErrBalanceCannotBeNegative
+		return nil, ErrAmountCannotBeNegative
+	}
+	currentTotal, err := s.repo.GetTotalPercentage(ctx, req.UserID)
+	if err != nil {
+		return nil, ErrInternal
+	}
+	if currentTotal+req.Percentage > 100 {
+		return nil, ErrPercentageExceeded
 	}
 
-	err := s.repo.CreateBudgetAllocation(ctx, req)
+	err = s.repo.CreateBudgetAllocation(ctx, req)
 	if err != nil {
 		return nil, ErrInternal
 	}
@@ -35,7 +42,15 @@ func (s *BudgetAllocationService) CreateBudgetAllocation(ctx context.Context, re
 }
 
 func (s *BudgetAllocationService) UpdateBudgetAllocation(ctx context.Context, req *models.BudgetAllocation) (*models.BudgetAllocation, error) {
-	err := s.repo.UpdateBudgetAllocation(ctx, req)
+	currentTotal, err := s.repo.GetTotalPercentageExcluding(ctx, req.UserID, req.ID)
+	if err != nil {
+		return nil, ErrInternal
+	}
+
+	if currentTotal+req.Percentage > 100 {
+		return nil, ErrPercentageExceeded
+	}
+	err = s.repo.UpdateBudgetAllocation(ctx, req)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrBudgetNotFound

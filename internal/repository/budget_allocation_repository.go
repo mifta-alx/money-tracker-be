@@ -55,7 +55,7 @@ func (r *BudgetAllocationRepository) DeleteBudgetAllocation(ctx context.Context,
 }
 
 func (r *BudgetAllocationRepository) GetBudgetAllocations(ctx context.Context, userID uuid.UUID) ([]*models.BudgetAllocation, error) {
-	query := `SELECT id, name, percentage, target_amount, period, created_at, updated_at FROM budget_allocations WHERE user_id = $1`
+	query := `SELECT id, name, percentage, target_amount, period, created_at, updated_at FROM budget_allocations WHERE user_id = $1 ORDER BY created_at`
 	rows, err := r.DB.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, err
@@ -95,4 +95,18 @@ func (r *BudgetAllocationRepository) GetBudgetAllocation(ctx context.Context, id
 		return nil, err
 	}
 	return &budget, nil
+}
+
+func (r *BudgetAllocationRepository) GetTotalPercentage(ctx context.Context, userID uuid.UUID) (int64, error) {
+	query := `SELECT COALESCE(SUM(percentage), 0) FROM budget_allocations WHERE user_id = $1`
+	var total int64
+	err := r.DB.QueryRowContext(ctx, query, userID).Scan(&total)
+	return total, err
+}
+
+func (r *BudgetAllocationRepository) GetTotalPercentageExcluding(ctx context.Context, userID, excludeID uuid.UUID) (int64, error) {
+	query := `SELECT COALESCE(SUM(percentage), 0) FROM budget_allocations WHERE user_id = $1 AND id != $2`
+	var total int64
+	err := r.DB.QueryRowContext(ctx, query, userID, excludeID).Scan(&total)
+	return total, err
 }

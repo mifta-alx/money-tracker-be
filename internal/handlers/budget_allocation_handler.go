@@ -125,23 +125,7 @@ func (h *BudgetAllocationHandler) UpdateBudgetAllocation(c *gin.Context) {
 		return
 	}
 
-	response := struct {
-		ID           uuid.UUID `json:"id"`
-		Name         string    `json:"name"`
-		Percentage   int64     `json:"percentage"`
-		TargetAmount int64     `json:"target_amount"`
-		Period       string    `json:"period"`
-		UpdatedAt    time.Time `json:"updated_at"`
-	}{
-		ID:           budget.ID,
-		Name:         budget.Name,
-		Percentage:   budget.Percentage,
-		TargetAmount: budget.TargetAmount,
-		Period:       budget.Period,
-		UpdatedAt:    budget.UpdatedAt,
-	}
-
-	utils.JSON(c, http.StatusOK, "Budget updated successfully", response)
+	utils.JSON(c, http.StatusOK, "Budget updated successfully", budget)
 }
 
 func (h *BudgetAllocationHandler) DeleteBudgetAllocation(c *gin.Context) {
