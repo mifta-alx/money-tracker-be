@@ -34,16 +34,18 @@ func FormatValidationError(err error) map[string]string {
 	errorsMap := make(map[string]string)
 
 	fieldLabels := map[string]string{
-		"account_id":  "Account",
-		"category_id": "Category",
-		"amount":      "Amount",
-		"title":       "Title",
-		"type":        "Type",
-		"date":        "Date",
-		"notes":       "Notes",
-		"name":        "Name",
-		"email":       "Email",
-		"password":    "Password",
+		"account_id":      "Account",
+		"category_id":     "Category",
+		"amount":          "Amount",
+		"title":           "Title",
+		"type":            "Type",
+		"date":            "Date",
+		"notes":           "Notes",
+		"name":            "Name",
+		"email":           "Email",
+		"password":        "Password",
+		"from_account_id": "Source account",
+		"to_account_id":   "Destination account",
 	}
 
 	tagMessages := map[string]string{
