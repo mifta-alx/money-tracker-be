@@ -46,6 +46,10 @@ var errorMessages = map[string]string{
 	// Budget Errors
 	"budget_not_found":    "Budget not found",
 	"percentage_exceeded": "Total budget allocation cannot exceed 100%. Please reduce another allocation first.",
+
+	// Transfer Errors
+	"transfer_not_found":    "Transfer not found",
+	"transfer_same_account": "Source and destination accounts cannot be the same",
 }
 
 func TranslateError(err error) string {

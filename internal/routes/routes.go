@@ -44,6 +44,10 @@ func SetupRouter() *gin.Engine {
 	transactionService := services.NewTransactionService(transactionRepo, db)
 	transactionHandler := handlers.NewTransactionHandler(transactionService)
 
+	transferRepo := repository.NewTransferRepository(db)
+	transferService := services.NewTransferService(transferRepo, db)
+	transferHandler := handlers.NewTransferHandler(transferService)
+
 	auth := v1.Group("/auth")
 	{
 		auth.POST("/register", authHandler.Register)
@@ -84,6 +88,14 @@ func SetupRouter() *gin.Engine {
 			transactions.GET("/:id", transactionHandler.GetTransaction)
 			transactions.PUT("/:id", transactionHandler.UpdateTransaction)
 			transactions.DELETE("/:id", transactionHandler.DeleteTransaction)
+		}
+		transfers := v1.Group("/transfers")
+		{
+			transfers.GET("", transferHandler.GetTransfers)
+			transfers.POST("", transferHandler.CreateTransfer)
+			transfers.GET("/:id", transferHandler.GetTransfer)
+			transfers.PUT("/:id", transferHandler.UpdateTransfer)
+			transfers.DELETE("/:id", transferHandler.DeleteTransfer)
 		}
 	}
 	return r
