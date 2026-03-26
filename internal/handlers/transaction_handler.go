@@ -190,7 +190,7 @@ func (h *TransactionHandler) GetTransaction(c *gin.Context) {
 	transactionID, err := uuid.Parse(transactionIDStr)
 
 	if err != nil {
-		utils.Error(c, http.StatusBadRequest, utils.TranslateError(services.ErrCategoryNotFound), nil)
+		utils.Error(c, http.StatusBadRequest, utils.TranslateError(services.ErrTransactionNotFound), nil)
 		return
 	}
 

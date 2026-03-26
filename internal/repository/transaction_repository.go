@@ -21,17 +21,17 @@ func NewTransactionRepository(db *sql.DB) *TransactionRepository {
 func (r *TransactionRepository) CreateTransactionTx(ctx context.Context, tx *sql.Tx, t *models.Transaction) error {
 	query := `INSERT INTO transactions (user_id, account_id, category_id, title, type, amount, date, notes) 
               VALUES ($1, $2, $3, $4, $5, $6, $7, $8) 
-              RETURNING id, created_at`
+              RETURNING id, created_at, updated_at`
 
 	return tx.QueryRowContext(ctx, query,
 		t.UserID, t.AccountID, t.CategoryID, t.Title, t.Type, t.Amount, t.Date, t.Notes,
-	).Scan(&t.ID, &t.CreatedAt)
+	).Scan(&t.ID, &t.CreatedAt, &t.UpdatedAt)
 }
 
 func (r *TransactionRepository) UpdateTransactionTx(ctx context.Context, tx *sql.Tx, t *models.Transaction) error {
-	query := `UPDATE transactions SET account_id = $1, category_id = $2, title = $3, type = $4, amount= $5, date=$6, notes = $7, updated_at=NOW() WHERE id = $8 AND user_id = $9 RETURNING id, updated_at`
+	query := `UPDATE transactions SET account_id = $1, category_id = $2, title = $3, type = $4, amount= $5, date=$6, notes = $7, updated_at = NOW() WHERE id = $8 AND user_id = $9 RETURNING id, created_at, updated_at`
 	return tx.QueryRowContext(ctx, query,
-		t.AccountID, t.CategoryID, t.Title, t.Type, t.Amount, t.Date, t.Notes, t.ID, t.UserID).Scan(&t.ID, &t.UpdatedAt)
+		t.AccountID, t.CategoryID, t.Title, t.Type, t.Amount, t.Date, t.Notes, t.ID, t.UserID).Scan(&t.ID, &t.CreatedAt, &t.UpdatedAt)
 }
 
 func (r *TransactionRepository) DeleteTransactionTx(ctx context.Context, tx *sql.Tx, id, userID uuid.UUID) error {
