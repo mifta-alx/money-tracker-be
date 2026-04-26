@@ -56,12 +56,12 @@ func (s *AccountService) DeleteAccount(ctx context.Context, accountID, userID uu
 	return nil
 }
 
-func (s *AccountService) GetAccounts(ctx context.Context, userID uuid.UUID) ([]*models.Account, error) {
-	accounts, err := s.repo.GetAccounts(ctx, userID)
+func (s *AccountService) GetAccounts(ctx context.Context, userID uuid.UUID) ([]*models.Account, float64, error) {
+	accounts, total, err := s.repo.GetAccounts(ctx, userID)
 	if err != nil {
-		return nil, ErrInternal
+		return nil, 0, ErrInternal
 	}
-	return accounts, nil
+	return accounts, total, nil
 }
 
 func (s *AccountService) GetAccount(ctx context.Context, id uuid.UUID, userID uuid.UUID) (*models.Account, error) {

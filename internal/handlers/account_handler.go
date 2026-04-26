@@ -30,8 +30,8 @@ func (h *AccountHandler) CreateAccount(c *gin.Context) {
 	userID := val.(uuid.UUID)
 	var req struct {
 		Name    string `json:"name" binding:"required"`
-		Type    string `json:"type" binding:"required,oneof=Bank E-Wallet Cash"`
-		Balance *int64 `json:"balance" binding:"required"`
+		Type    string `json:"type" binding:"required,oneof=bank e-wallet cash credit-card investment"`
+		Balance *int64 `json:"balance" binding:"required,numeric,min=0"`
 		Icon    string `json:"icon" binding:"required"`
 		Color   string `json:"color" binding:"required"`
 	}
@@ -94,8 +94,8 @@ func (h *AccountHandler) UpdateAccount(c *gin.Context) {
 
 	var req struct {
 		Name    string `json:"name" binding:"required"`
-		Type    string `json:"type" binding:"required,oneof=Bank E-Wallet Cash"`
-		Balance *int64 `json:"balance"`
+		Type    string `json:"type" binding:"required,oneof=bank e-wallet cash credit-card investment"`
+		Balance *int64 `json:"balance" binding:"required,numeric"`
 		Icon    string `json:"icon" binding:"required"`
 		Color   string `json:"color" binding:"required"`
 	}
@@ -111,13 +111,21 @@ func (h *AccountHandler) UpdateAccount(c *gin.Context) {
 	}
 
 	updatedAccount := &models.Account{
-		ID:      accountID,
-		UserID:  userID,
-		Name:    req.Name,
-		Type:    req.Type,
-		Balance: *req.Balance,
-		Icon:    req.Icon,
-		Color:   req.Color,
+		ID:     accountID,
+		UserID: userID,
+		Name:   req.Name,
+		Type:   req.Type,
+		Icon:   req.Icon,
+		Color:  req.Color,
+	}
+
+	if req.Balance != nil {
+		updatedAccount.Balance = *req.Balance
+	} else {
+		existingAccount, err := h.service.GetAccount(c.Request.Context(), accountID, userID)
+		if err == nil {
+			updatedAccount.Balance = existingAccount.Balance
+		}
 	}
 
 	account, err := h.service.UpdateAccount(c.Request.Context(), updatedAccount)
@@ -164,13 +172,17 @@ func (h *AccountHandler) GetAccounts(c *gin.Context) {
 		utils.Error(c, http.StatusUnauthorized, utils.TranslateError(services.ErrUnauthorized), nil)
 		return
 	}
-	accounts, err := h.service.GetAccounts(c.Request.Context(), userID)
+	accounts, total, err := h.service.GetAccounts(c.Request.Context(), userID)
 	if err != nil {
 		errorMessage := utils.TranslateError(err)
 		utils.Error(c, http.StatusInternalServerError, errorMessage, nil)
 		return
 	}
-	utils.JSON(c, http.StatusOK, "Accounts retrieved successfully", accounts)
+	response := gin.H{
+		"total_balance": total,
+		"accounts":      accounts,
+	}
+	utils.JSON(c, http.StatusOK, "Accounts retrieved successfully", response)
 }
 
 func (h *AccountHandler) GetAccount(c *gin.Context) {

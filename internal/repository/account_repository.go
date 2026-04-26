@@ -50,22 +50,24 @@ func (r *AccountRepository) DeleteAccount(ctx context.Context, id, userID uuid.U
 	return err
 }
 
-func (r *AccountRepository) GetAccounts(ctx context.Context, userID uuid.UUID) ([]*models.Account, error) {
-	query := `SELECT id, name, type, balance, color, icon, created_at, updated_at FROM accounts WHERE user_id = $1 ORDER BY created_at`
+func (r *AccountRepository) GetAccounts(ctx context.Context, userID uuid.UUID) ([]*models.Account, float64, error) {
+	query := `SELECT id, name, type, balance, icon, color, created_at, updated_at, SUM(balance) OVER() as total_balance FROM accounts WHERE user_id = $1 ORDER BY created_at`
 
 	rows, err := r.DB.QueryContext(ctx, query, userID)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	defer func() { _ = rows.Close() }()
 
 	var accounts []*models.Account
+	var totalBalance float64
+
 	for rows.Next() {
 		var acc models.Account
-		err := rows.Scan(&acc.ID, &acc.Name, &acc.Type, &acc.Balance, &acc.Icon, &acc.Color, &acc.CreatedAt, &acc.UpdatedAt)
+		err := rows.Scan(&acc.ID, &acc.Name, &acc.Type, &acc.Balance, &acc.Icon, &acc.Color, &acc.CreatedAt, &acc.UpdatedAt, &totalBalance)
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
 		accounts = append(accounts, &acc)
 	}
@@ -74,7 +76,7 @@ func (r *AccountRepository) GetAccounts(ctx context.Context, userID uuid.UUID) (
 		accounts = []*models.Account{}
 	}
 
-	return accounts, nil
+	return accounts, totalBalance, nil
 }
 
 func (r *AccountRepository) GetAccount(ctx context.Context, id, userID uuid.UUID) (*models.Account, error) {
