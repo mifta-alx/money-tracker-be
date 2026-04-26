@@ -1,6 +1,8 @@
+name: money-tracker
+
 services:
   db:
-    image: postgres:15
+    image: postgres:15-alpine
     container_name: money-tracker-db
     shm_size: 128mb
     restart: always
@@ -12,6 +14,22 @@ services:
       - "${DB_PORT}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: money-tracker-api
+    restart: always
+    ports:
+      - "8080:8080"
+    env_file:
+      - ../.env
+    depends_on:
+      - db
+    environment:
+      - DB_HOST=db
+      - DB_URL=postgres://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?sslmode=disable
 
 volumes:
   postgres_data:

@@ -3,11 +3,11 @@ package main
 import (
 	"log"
 	"money-tracker/internal/routes"
+	"os"
 	"reflect"
 
 	"github.com/gin-gonic/gin/binding"
 	"github.com/go-playground/validator/v10"
-	"github.com/joho/godotenv"
 )
 
 func init() {
@@ -23,13 +23,12 @@ func init() {
 }
 
 func main() {
-	err := godotenv.Load()
-	if err != nil {
-		log.Fatal("Error loading .env file")
-	}
 	r := routes.SetupRouter()
-	err = r.Run(":8080")
-	if err != nil {
-		return
+	port := os.Getenv("APP_PORT")
+	if port == "" {
+		port = "8080"
+	}
+	if err := r.Run(":" + port); err != nil {
+		log.Fatal(err)
 	}
 }
