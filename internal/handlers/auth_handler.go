@@ -21,9 +21,10 @@ func NewAuthHandler(s *services.AuthService) *AuthHandler {
 
 func (h *AuthHandler) Register(c *gin.Context) {
 	var input struct {
-		Email    string `json:"email" binding:"required,email"`
-		Name     string `json:"name" binding:"required"`
-		Password string `json:"password" binding:"required"`
+		Email           string `json:"email" binding:"required,email"`
+		Name            string `json:"name" binding:"required"`
+		Password        string `json:"password" binding:"required,min=8,containsany=0123456789,containsany=ABCDEFGHIJKLMNOPQRSTUVWXYZ,containsany=abcdefghijklmnopqrstuvwxyz"`
+		ConfirmPassword string `json:"confirm_password" binding:"required,eqfield=Password"`
 	}
 
 	if err := c.ShouldBindJSON(&input); err != nil {
