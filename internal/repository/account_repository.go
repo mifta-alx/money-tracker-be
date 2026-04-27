@@ -19,8 +19,8 @@ func NewAccountRepository(db *sql.DB) *AccountRepository {
 }
 
 func (r *AccountRepository) CreateAccount(ctx context.Context, a *models.Account) error {
-	query := `INSERT INTO accounts (user_id, name, type, balance, icon, color) 
-              VALUES ($1, $2, $3, $4, $5, $6) 
+	query := `INSERT INTO accounts (user_id, name, type, balance, icon, color, is_excluded) 
+              VALUES ($1, $2, $3, $4, $5, $6, $7) 
               RETURNING id, created_at, updated_at`
 	return r.DB.QueryRowContext(ctx, query,
 		a.UserID,
@@ -29,12 +29,13 @@ func (r *AccountRepository) CreateAccount(ctx context.Context, a *models.Account
 		a.Balance,
 		a.Icon,
 		a.Color,
+		a.IsExcluded,
 	).Scan(&a.ID, &a.CreatedAt, &a.UpdatedAt)
 }
 
 func (r *AccountRepository) UpdateAccount(ctx context.Context, a *models.Account) error {
-	query := `UPDATE accounts SET name = $1, type = $2, balance = $3, icon = $4, color = $5, updated_at = NOW() WHERE id = $6 AND user_id = $7 RETURNING id, created_at, updated_at`
-	return r.DB.QueryRowContext(ctx, query, a.Name, a.Type, a.Balance, a.Icon, a.Color, a.ID, a.UserID).Scan(&a.ID, &a.CreatedAt, &a.UpdatedAt)
+	query := `UPDATE accounts SET name = $1, type = $2, balance = $3, icon = $4, color = $5, is_excluded = $6, updated_at = NOW() WHERE id = $7 AND user_id = $8 RETURNING id, created_at, updated_at`
+	return r.DB.QueryRowContext(ctx, query, a.Name, a.Type, a.Balance, a.Icon, a.Color, a.IsExcluded, a.ID, a.UserID).Scan(&a.ID, &a.CreatedAt, &a.UpdatedAt)
 }
 
 func (r *AccountRepository) DeleteAccount(ctx context.Context, id, userID uuid.UUID) error {
@@ -51,7 +52,12 @@ func (r *AccountRepository) DeleteAccount(ctx context.Context, id, userID uuid.U
 }
 
 func (r *AccountRepository) GetAccounts(ctx context.Context, userID uuid.UUID) ([]*models.Account, float64, error) {
-	query := `SELECT id, name, type, balance, icon, color, created_at, updated_at, SUM(balance) OVER() as total_balance FROM accounts WHERE user_id = $1 ORDER BY created_at`
+	query := `SELECT 
+            id, name, type, balance, icon, color, is_excluded, created_at, updated_at,
+            SUM(CASE WHEN is_excluded = FALSE THEN balance ELSE 0 END) OVER() as total_balance 
+        FROM accounts 
+        WHERE user_id = $1 
+        ORDER BY created_at`
 
 	rows, err := r.DB.QueryContext(ctx, query, userID)
 	if err != nil {
@@ -65,7 +71,7 @@ func (r *AccountRepository) GetAccounts(ctx context.Context, userID uuid.UUID) (
 
 	for rows.Next() {
 		var acc models.Account
-		err := rows.Scan(&acc.ID, &acc.Name, &acc.Type, &acc.Balance, &acc.Icon, &acc.Color, &acc.CreatedAt, &acc.UpdatedAt, &totalBalance)
+		err := rows.Scan(&acc.ID, &acc.Name, &acc.Type, &acc.Balance, &acc.Icon, &acc.Color, &acc.IsExcluded, &acc.CreatedAt, &acc.UpdatedAt, &totalBalance)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -80,9 +86,9 @@ func (r *AccountRepository) GetAccounts(ctx context.Context, userID uuid.UUID) (
 }
 
 func (r *AccountRepository) GetAccount(ctx context.Context, id, userID uuid.UUID) (*models.Account, error) {
-	query := `SELECT id, name, type, balance, icon, color, created_at, updated_at FROM accounts WHERE id = $1 AND user_id = $2`
+	query := `SELECT id, name, type, balance, icon, color, is_excluded, created_at, updated_at FROM accounts WHERE id = $1 AND user_id = $2`
 	var acc models.Account
-	err := r.DB.QueryRowContext(ctx, query, id, userID).Scan(&acc.ID, &acc.Name, &acc.Type, &acc.Balance, &acc.Icon, &acc.Color, &acc.CreatedAt, &acc.UpdatedAt)
+	err := r.DB.QueryRowContext(ctx, query, id, userID).Scan(&acc.ID, &acc.Name, &acc.Type, &acc.Balance, &acc.Icon, &acc.Color, &acc.IsExcluded, &acc.CreatedAt, &acc.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}

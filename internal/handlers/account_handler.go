@@ -29,11 +29,12 @@ func (h *AccountHandler) CreateAccount(c *gin.Context) {
 	}
 	userID := val.(uuid.UUID)
 	var req struct {
-		Name    string `json:"name" binding:"required"`
-		Type    string `json:"type" binding:"required,oneof=bank e-wallet cash credit-card investment"`
-		Balance *int64 `json:"balance" binding:"required,numeric,min=0"`
-		Icon    string `json:"icon" binding:"required"`
-		Color   string `json:"color" binding:"required"`
+		Name       string `json:"name" binding:"required"`
+		Type       string `json:"type" binding:"required,oneof=bank e-wallet cash credit-card investment"`
+		Balance    *int64 `json:"balance" binding:"required,numeric,min=0"`
+		Icon       string `json:"icon" binding:"required"`
+		Color      string `json:"color" binding:"required"`
+		IsExcluded bool   `json:"is_excluded"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -47,12 +48,13 @@ func (h *AccountHandler) CreateAccount(c *gin.Context) {
 	}
 
 	newAccount := &models.Account{
-		UserID:  userID,
-		Name:    req.Name,
-		Type:    req.Type,
-		Balance: *req.Balance,
-		Icon:    req.Icon,
-		Color:   req.Color,
+		UserID:     userID,
+		Name:       req.Name,
+		Type:       req.Type,
+		Balance:    *req.Balance,
+		Icon:       req.Icon,
+		Color:      req.Color,
+		IsExcluded: req.IsExcluded,
 	}
 
 	account, err := h.service.CreateAccount(c.Request.Context(), newAccount)
@@ -62,21 +64,23 @@ func (h *AccountHandler) CreateAccount(c *gin.Context) {
 		return
 	}
 	response := struct {
-		ID        uuid.UUID `json:"id"`
-		Name      string    `json:"name"`
-		Type      string    `json:"type"`
-		Balance   int64     `json:"balance"`
-		Icon      string    `json:"icon"`
-		Color     string    `json:"color"`
-		CreatedAt time.Time `json:"created_at"`
+		ID         uuid.UUID `json:"id"`
+		Name       string    `json:"name"`
+		Type       string    `json:"type"`
+		Balance    int64     `json:"balance"`
+		Icon       string    `json:"icon"`
+		Color      string    `json:"color"`
+		IsExcluded bool      `json:"is_excluded"`
+		CreatedAt  time.Time `json:"created_at"`
 	}{
-		ID:        account.ID,
-		Name:      account.Name,
-		Type:      account.Type,
-		Balance:   account.Balance,
-		Icon:      account.Icon,
-		Color:     account.Color,
-		CreatedAt: account.CreatedAt,
+		ID:         account.ID,
+		Name:       account.Name,
+		Type:       account.Type,
+		Balance:    account.Balance,
+		Icon:       account.Icon,
+		Color:      account.Color,
+		IsExcluded: account.IsExcluded,
+		CreatedAt:  account.CreatedAt,
 	}
 
 	utils.JSON(c, http.StatusCreated, "Account created successfully", response)
@@ -93,11 +97,12 @@ func (h *AccountHandler) UpdateAccount(c *gin.Context) {
 	userID := val.(uuid.UUID)
 
 	var req struct {
-		Name    string `json:"name" binding:"required"`
-		Type    string `json:"type" binding:"required,oneof=bank e-wallet cash credit-card investment"`
-		Balance *int64 `json:"balance" binding:"required,numeric"`
-		Icon    string `json:"icon" binding:"required"`
-		Color   string `json:"color" binding:"required"`
+		Name       string `json:"name" binding:"required"`
+		Type       string `json:"type" binding:"required,oneof=bank e-wallet cash credit-card investment"`
+		Balance    *int64 `json:"balance" binding:"required,numeric"`
+		Icon       string `json:"icon" binding:"required"`
+		Color      string `json:"color" binding:"required"`
+		IsExcluded bool   `json:"is_excluded"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -111,12 +116,13 @@ func (h *AccountHandler) UpdateAccount(c *gin.Context) {
 	}
 
 	updatedAccount := &models.Account{
-		ID:     accountID,
-		UserID: userID,
-		Name:   req.Name,
-		Type:   req.Type,
-		Icon:   req.Icon,
-		Color:  req.Color,
+		ID:         accountID,
+		UserID:     userID,
+		Name:       req.Name,
+		Type:       req.Type,
+		Icon:       req.Icon,
+		Color:      req.Color,
+		IsExcluded: req.IsExcluded,
 	}
 
 	if req.Balance != nil {
