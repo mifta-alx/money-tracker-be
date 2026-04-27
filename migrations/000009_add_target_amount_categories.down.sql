@@ -1,0 +1,5 @@
+BEGIN;
+
+ALTER TABLE categories DROP COLUMN IF EXISTS target_amount;
+
+COMMIT;

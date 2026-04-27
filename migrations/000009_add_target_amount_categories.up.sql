@@ -1,0 +1,5 @@
+BEGIN;
+
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS target_amount BIGINT DEFAULT 0;
+
+COMMIT;
