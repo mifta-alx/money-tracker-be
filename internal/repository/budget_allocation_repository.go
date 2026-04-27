@@ -55,7 +55,30 @@ func (r *BudgetAllocationRepository) DeleteBudgetAllocation(ctx context.Context,
 }
 
 func (r *BudgetAllocationRepository) GetBudgetAllocations(ctx context.Context, userID uuid.UUID) ([]*models.BudgetAllocation, error) {
-	query := `SELECT id, name, percentage, target_amount, period, created_at, updated_at FROM budget_allocations WHERE user_id = $1 ORDER BY created_at`
+	query := `
+		WITH category_totals AS (
+            SELECT 
+                allocation_id, 
+                COALESCE(SUM(target_amount), 0) as total_planned
+            FROM categories 
+            WHERE user_id = $1
+            GROUP BY allocation_id
+        )
+        SELECT 
+            ba.id, 
+            ba.name, 
+            ba.percentage, 
+            ba.target_amount, 
+            ba.period, 
+            ba.created_at, 
+            ba.updated_at,
+            COALESCE(ct.total_planned, 0) as total_planned,
+            (ba.target_amount - COALESCE(ct.total_planned, 0)) as remaining_plan
+        FROM budget_allocations ba
+        LEFT JOIN category_totals ct ON ba.id = ct.allocation_id
+        WHERE ba.user_id = $1 
+        ORDER BY ba.created_at`
+
 	rows, err := r.DB.QueryContext(ctx, query, userID)
 	if err != nil {
 		return nil, err
@@ -65,7 +88,11 @@ func (r *BudgetAllocationRepository) GetBudgetAllocations(ctx context.Context, u
 	var budgets []*models.BudgetAllocation
 	for rows.Next() {
 		var budget models.BudgetAllocation
-		err := rows.Scan(&budget.ID, &budget.Name, &budget.Percentage, &budget.TargetAmount, &budget.Period, &budget.CreatedAt, &budget.UpdatedAt)
+		err := rows.Scan(
+			&budget.ID, &budget.Name, &budget.Percentage, &budget.TargetAmount, &budget.Period,
+			&budget.CreatedAt, &budget.UpdatedAt,
+			&budget.TotalPlanned, &budget.RemainingPlan,
+		)
 		if err != nil {
 			return nil, err
 		}

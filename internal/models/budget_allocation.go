@@ -7,12 +7,14 @@ import (
 )
 
 type BudgetAllocation struct {
-	ID           uuid.UUID `json:"id" db:"id"`
-	UserID       uuid.UUID `json:"-" db:"user_id"`
-	Name         string    `json:"name" db:"name"`
-	Percentage   int64     `json:"percentage" db:"percentage"`
-	TargetAmount int64     `json:"target_amount" db:"target_amount"`
-	Period       string    `json:"period" db:"period"`
-	CreatedAt    time.Time `json:"created_at" db:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at" db:"updated_at"`
+	ID            uuid.UUID `json:"id" db:"id"`
+	UserID        uuid.UUID `json:"-" db:"user_id"`
+	Name          string    `json:"name" db:"name"`
+	Percentage    int64     `json:"percentage" db:"percentage"`
+	TargetAmount  int64     `json:"target_amount" db:"target_amount"`
+	Period        string    `json:"period" db:"period"`
+	TotalPlanned  int64     `json:"total_planned" db:"total_planned"`
+	RemainingPlan int64     `json:"remaining_plan" db:"remaining_plan"`
+	CreatedAt     time.Time `json:"created_at" db:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at" db:"updated_at"`
 }
