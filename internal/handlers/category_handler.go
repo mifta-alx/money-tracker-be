@@ -37,6 +37,7 @@ func (h *CategoryHandler) CreateCategory(c *gin.Context) {
 		Type         string     `json:"type" binding:"required,oneof=expense income"`
 		Icon         string     `json:"icon" binding:"required"`
 		Color        string     `json:"color" binding:"required"`
+		TargetAmount int64      `json:"target_amount" binding:"numeric,min=0"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -56,6 +57,7 @@ func (h *CategoryHandler) CreateCategory(c *gin.Context) {
 		Type:         req.Type,
 		Icon:         req.Icon,
 		Color:        req.Color,
+		TargetAmount: req.TargetAmount,
 	}
 
 	category, err := h.service.CreateCategory(c.Request.Context(), newCategory)
@@ -72,6 +74,7 @@ func (h *CategoryHandler) CreateCategory(c *gin.Context) {
 		Type         string     `json:"type"`
 		Icon         string     `json:"icon"`
 		Color        string     `json:"color"`
+		TargetAmount int64      `json:"target_amount"`
 		CreatedAt    time.Time  `json:"created_at"`
 	}{
 		ID:           category.ID,
@@ -80,6 +83,7 @@ func (h *CategoryHandler) CreateCategory(c *gin.Context) {
 		Type:         category.Type,
 		Icon:         category.Icon,
 		Color:        category.Color,
+		TargetAmount: category.TargetAmount,
 		CreatedAt:    category.CreatedAt,
 	}
 	utils.JSON(c, http.StatusCreated, "Category created successfully", response)
@@ -101,6 +105,7 @@ func (h *CategoryHandler) UpdateCategory(c *gin.Context) {
 		Type         string     `json:"type" binding:"required,oneof=expense income"`
 		Icon         string     `json:"icon" binding:"required"`
 		Color        string     `json:"color" binding:"required"`
+		TargetAmount int64      `json:"target_amount" binding:"numeric,min=0"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -121,6 +126,7 @@ func (h *CategoryHandler) UpdateCategory(c *gin.Context) {
 		Type:         req.Type,
 		Icon:         req.Icon,
 		Color:        req.Color,
+		TargetAmount: req.TargetAmount,
 	}
 
 	category, err := h.service.UpdateCategory(c.Request.Context(), updatedCategory)

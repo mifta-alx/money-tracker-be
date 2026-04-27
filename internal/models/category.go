@@ -14,6 +14,7 @@ type Category struct {
 	Type         string     `json:"type" db:"type"`
 	Color        string     `json:"color" db:"color"`
 	Icon         string     `json:"icon" db:"icon"`
+	TargetAmount int64      `json:"target_amount" db:"target_amount"`
 	CreatedAt    time.Time  `json:"created_at" db:"created_at"`
 	UpdatedAt    time.Time  `json:"updated_at" db:"updated_at"`
 }
